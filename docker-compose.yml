@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:18-bookworm
+    environment:
+      POSTGRES_DB: tony
+      POSTGRES_USER: local_bootstrap
+      POSTGRES_PASSWORD: local_bootstrap_only
+    ports: ["127.0.0.1:5432:5432"]
+    volumes:
+      - tony_pg:/var/lib/postgresql
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U local_bootstrap -d tony"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  migrate:
+    build: { context: ., target: migrate }
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://tony_migrator:local_migrator_only@postgres:5432/tony
+    depends_on:
+      postgres: { condition: service_healthy }
+  app:
+    build: { context: ., target: runner }
+    environment:
+      DATABASE_URL: postgresql://tony_app:local_app_only@postgres:5432/tony
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/readiness').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  worker:
+    build: { context: ., target: worker }
+    environment:
+      DATABASE_URL: postgresql://tony_app:local_app_only@postgres:5432/tony
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+volumes:
+  tony_pg:

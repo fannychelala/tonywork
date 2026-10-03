@@ -1,0 +1,12 @@
+generator client {
+  provider = "prisma-client"
+  output = "../src/db/generated"
+}
+datasource db {
+  provider = "postgresql"
+}
+// Technical infrastructure probe only; no tenant or user data.
+model SystemProbe {
+  id String @id
+  @@map("system_probe")
+}
