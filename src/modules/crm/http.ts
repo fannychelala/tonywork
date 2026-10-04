@@ -2,6 +2,7 @@ import {z} from "zod";
 import {getAuth} from "@/modules/auth/server";
 import {sameOrigin} from "@/server/security/http";
 import {crm,today,CrmError} from "./service";
+import {sqlState} from "./errors";
 import {kindSchema} from "./validation";
 const headers={"Cache-Control":"private, no-store",Vary:"Cookie"};
 const errors:Record<number,string>={400:"Invalid request",401:"Unauthorized",403:"Forbidden",404:"Not found or not authorized",409:"Conflict",413:"Request too large",500:"Unavailable"};
@@ -29,7 +30,7 @@ export async function handle(request:Request,params:{organizationId:string;kind:
  }catch(e) {
   if(e instanceof CrmError)return error(e.status);if(e instanceof z.ZodError)return error(400);
   // Do not expose SQL text, constraint names or payloads. Only map known authorization/integrity classes.
-  const c=e as {code?:string;meta?:{code?:string};cause?:{code?:string}};const code=c.meta?.code??c.cause?.code??c.code;
+  const code=sqlState(e);
   if(code==="42501")return error(404);if(["23505","23503","23001","P2002","P2003"].includes(code??""))return error(409);if(code==="23514")return error(400);return error(500);
  }
 }

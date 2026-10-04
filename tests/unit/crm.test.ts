@@ -1,7 +1,12 @@
 import {describe,it,expect} from "vitest";
 import {randomUUID} from "node:crypto";
+import {sqlState} from "../../src/modules/crm/errors";
 import {inputs,updates,listInput,validateAmounts} from "../../src/modules/crm/validation";
 describe("CRM strict boundaries",()=> {
+ it("maps adapter metadata without exposing details",()=> {
+  expect(sqlState({code:"P2010",meta:{driverAdapterError:{cause:{originalCode:"23505",originalMessage:"SECRET"}}}})).toBe("23505");
+  expect(sqlState({meta:{driverAdapterError:{cause:{originalCode:"42501"}}}})).toBe("42501");expect(sqlState(null)).toBeUndefined();
+ });
  it("accepts only international phone and bounded name, rejects tenant mass assignment",()=> {
   const valid={name:" Synthetic ",phone:"+33123456789",email:null};expect(inputs.contacts.parse(valid).name).toBe("Synthetic");
   for(const phone of ["0612345678","+012345","<script>","+1234567890123456"])expect(inputs.contacts.safeParse({...valid,phone}).success).toBe(false);
