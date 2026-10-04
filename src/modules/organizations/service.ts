@@ -20,3 +20,7 @@ export async function readOrganization(token: string, organizationId: string, ad
   return { organization, memberships };
  });
 }
+// Only this minimal identity is exposed to the shell, after the existing SQL authorization.
+export async function readOrganizationIdentity(token: string, organizationId: string) {
+ return withTenant(getDatabase(), { token, organizationId }, tx => tx.organization.findUnique({ where: { id: organizationId }, select: { id: true, name: true } }));
+}
