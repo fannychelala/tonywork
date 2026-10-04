@@ -8,6 +8,7 @@ import { dictionaries, defaultLocale } from "@/shared/i18n/messages";
 import { Button, Card, EmptyState, Skeleton } from "@/shared/ui/primitives";
 import { Dialog } from "@/shared/ui/dialog";
 import { screens, type Screen } from "./screens";
+import { CrmPanel, Today } from "@/modules/crm/panel";
 import { DemoForm } from "./demo-form";
 const dto = z.object({ id: z.uuid(), name: z.string() }).strict();
 type Access = { status: "ready"; name: string } | { status: "loading" | "required" | "denied" | "error" };
@@ -29,7 +30,11 @@ const icons: Record<Screen, string> = { today: "◷", opportunities: "↗", cont
 export function Shell({ organizationId, screen }: { organizationId: string; screen: Screen }) {
  const t = shellDictionaries[defaultLocale], brand = dictionaries[defaultLocale], [access, setAccess] = useState<Access>({ status: "loading" });
  const controller = useRef<AbortController | null>(null);
- const conceal = useCallback(() => { document.documentElement.dataset.shellPrivate = "hidden"; controller.current?.abort(); flushSync(() => setAccess({ status: "loading" })); }, []);
+ const [loaded, setLoaded] = useState<string[]>([]);
+ const screenReady = useCallback(() => setLoaded(previous => previous.includes(screen) ? previous : [...previous, screen]), [screen]);
+ const tasksReady = useCallback(() => setLoaded(previous => previous.includes("tasks") ? previous : [...previous, "tasks"]), []);
+ const complete = screen === "settings" || (loaded.includes(screen) && (screen !== "today" || loaded.includes("tasks")));
+ const conceal = useCallback(() => { document.documentElement.dataset.shellPrivate = "hidden"; controller.current?.abort(); flushSync(() => { setAccess({ status: "loading" }); setLoaded([]); }); }, []);
  const verify = useCallback(() => {
   controller.current?.abort(); document.documentElement.dataset.shellPrivate = "hidden";
   const current = new AbortController(); controller.current = current;
@@ -47,6 +52,7 @@ export function Shell({ organizationId, screen }: { organizationId: string; scre
   void verify(); window.addEventListener("pagehide", hide); window.addEventListener("pageshow", show); window.addEventListener("focus", show); document.addEventListener("visibilitychange", visibility);
   return () => { controller.current?.abort(); window.removeEventListener("pagehide", hide); window.removeEventListener("pageshow", show); window.removeEventListener("focus", show); document.removeEventListener("visibilitychange", visibility); };
  }, [conceal, verify]);
+ const denied = useCallback(() => { conceal(); void verify(); }, [conceal, verify]);
  async function signout() {
   conceal();
   try {
@@ -62,8 +68,8 @@ export function Shell({ organizationId, screen }: { organizationId: string; scre
  <main id="main" tabIndex={-1} className="shell-main">
  <div className="page-heading"><p className="eyebrow">{t.workspace}</p><h1>{t[screen]}</h1><p>{t[`${screen}Intro`]}</p></div>
  {access.status === "loading" ? <div aria-busy="true"><p className="status">{t.loading}</p><Skeleton label={t.checking} /></div> : access.status !== "ready" ? <div data-testid={`access-${access.status}`}><EmptyState title={t[access.status]} detail={t[`${access.status}Detail`]}><Link prefetch={false} className="ui-button ui-button--secondary" href="/">{t.home}</Link>{access.status === "error" && <Button onClick={() => { conceal(); void verify(); }}>{t.refresh}</Button>}</EmptyState></div> :
- <div className="shell-private"><div className="organization-strip"><span className="organization-avatar" aria-hidden="true">{access.name.slice(0,1).toUpperCase()}</span><span data-testid="organization-name">{access.name}</span><Button variant="quiet" onClick={() => void signout()}>{t.signout}</Button></div>
- <EmptyState title={t[`${screen}Empty`]} detail={t[`${screen}Detail`]} />
+ <div className="shell-private"><div className="organization-strip">{complete ? <><span className="organization-avatar" aria-hidden="true">{access.name.slice(0,1).toUpperCase()}</span><span data-testid="organization-name">{access.name}</span></> : <p role="status">{t.checking}</p>}<Button variant="quiet" onClick={() => void signout()}>{t.signout}</Button></div>
+ {screen === "settings" ? <EmptyState title={t.settingsEmpty} detail={t.settingsDetail} /> : screen === "today" ? <Today org={organizationId} onDenied={denied} onReady={screenReady} onTasksReady={tasksReady}/> : <CrmPanel organizationId={organizationId} kind={screen} onDenied={denied} onReady={screenReady}/>}
  <Card className="next-step"><div><h2>{t.next}</h2><p>{t.nextDetail}</p></div><Dialog label={t.learn} title={t.aboutTitle} close={t.close}><p>{t.aboutDetail}</p></Dialog></Card>
  {screen === "settings" && <div className="component-example"><Dialog label={t.demoOpen} title={t.demoTitle} close={t.close}><DemoForm t={t} /></Dialog></div>}
  </div>}

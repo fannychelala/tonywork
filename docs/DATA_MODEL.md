@@ -9,3 +9,6 @@ AuditLog enregistre acteur, organisation éventuelle, événement, cible, corré
 Le schéma privé tony_security contient les contextes transactionnels et grants administrateur ; il n’est pas exposé par Prisma ni accessible au runtime. Migrations SQL explicites pour permissions, politiques forcées et fonctions. La migration corrective sépare les branches du déclencheur d’audit afin de ne pas référencer un champ Membership sur Organization.
 
 Les entités Contact, Opportunity, Call, facturation, etc. restent hors Lot 1. Lors de leur ajout, les références métier tenantées devront utiliser des contraintes composites pour interdire les liens cross-tenant.
+
+## Lot 3 — CRM minimal
+Quatre tables : contact, service_template, opportunity, task ; PK (organizationId,id), UUID aléatoires non uniques globalement, FK composites RESTRICT et identifiants immuables. Contact.phone E.164 unique par organisation uniquement. Version positive incrémentée à chaque UPDATE ; dates UTC. Montants entiers bornés + devise explicite ; OPEN/DONE et NEW/TO_CONTACT/WAITING_CUSTOMER/WON/LOST/ARCHIVED contrôlés SQL. Pas de deletedAt/archivedAt ni table supplémentaire. Modèle détaillé dans LOT_3_PLAN.md et migration 20261004000300_crm_minimal ; aucun seed/backfill.

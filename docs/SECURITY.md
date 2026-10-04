@@ -14,3 +14,8 @@ Audit production propre à vérifier sur chaque livraison ; braces est une dette
 
 ## Shell Lot 2
 API de DTO minimal (id/name) autorisée par session et withTenant/RLS. Aucun tenant dans HTML/RSC initial ; pas d’adhésion/token/cookie/audit dans le DTO. PLATFORM_ADMIN refusé dans ce shell, aucun grant implicite. Fetch/API no-store, navigation tenant par document sans prefetch, masque synchrone au pagehide et avant déconnexion, revalidation pageshow/focus/visibilité. Voir ADR 0007 pour la limite d’un contenu précédemment autorisé déjà transmis au navigateur. La dette de réutilisation courte d’un grant admin reste acceptée, sans extension ni assouplissement.
+
+## Lot 3 — CRM
+ADR 0008 : frontière SQL forcée des quatre tables, PK/FK composites, OWNER écrit/MEMBER lit, plateforme exclue. Les APIs valident session et entrées strictes, mutations JSON ≤16 KiB et Origin exact, DTO projetés et réponses private/no-store/Vary Cookie. Aucun secret ou donnée métier dans messages d'erreur/audit/logs. Les formes d'erreurs Prisma/adapter sont normalisées sans publier leurs messages SQL. Audit CRUD trigger append-only, rollback métier atomique ; audit précommité des lectures admin Lot 1 inchangé.
+
+Tests SQL directs, HTTP A/B, HTML/RSC/réseau, forms révoquées et réponses retardées : LOT_3_REVIEW.md. Pas de données réelles, de provider, de production ni d'idempotence persistante. Une response obtenue pendant un accès autorisé ne peut pas être effacée rétroactivement (ADR 0007).

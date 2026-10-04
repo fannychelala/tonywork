@@ -8,3 +8,6 @@ Séparer userLocale, organizationDefaultLocale, prospectLocale et langue opérat
 
 ## Lot 2
 Le dictionnaire shell.ts conserve des clés communes typées fr-FR/en-GB ; parité et valeurs non vides testées. Français par défaut ; aucune préférence ni routage multilingue ajouté. La marque et les textes d’interface restent centralisés. Les pages structurelles n’affichent aucun montant ni date fictive et ne modifient aucune locale organisation.
+
+## Lot 3
+Textes CRM centralisés fr-FR/en-GB dans src/shared/i18n/crm.ts. Prix saisis en unités de devise, convertis exactement vers entiers mineurs (EUR/GBP/USD 2 décimales, JPY 0, KWD 3), affichés avec Intl existant ; aucune conversion de devise. Organization.timeZone existant est la seule timezone du jour civil ; bornes PostgreSQL DST, tests Paris/New York et jours 23/25h. Les échéances du formulaire minimal sont explicitement UTC au format ISO ; aucune timezone navigateur utilisée comme autorité.
