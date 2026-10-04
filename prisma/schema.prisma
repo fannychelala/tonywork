@@ -120,6 +120,10 @@ model Organization {
   timeZone      String       @default("Europe/Paris")
   createdAt     DateTime     @default(now()) @db.Timestamptz(6)
   memberships   Membership[]
+  contacts Contact[]
+  serviceTemplates ServiceTemplate[]
+  opportunities Opportunity[]
+  tasks Task[]
 
   @@map("organization")
 }
@@ -148,4 +152,80 @@ model AuditLog {
 
   @@index([organizationId, createdAt])
   @@map("audit_log")
+}
+
+model Contact {
+ organizationId String @db.Uuid
+ id String @default(uuid()) @db.Uuid
+ name String
+ phone String
+ email String?
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ updatedAt DateTime @default(now()) @db.Timestamptz(6)
+ version Int @default(1)
+ organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+ opportunities Opportunity[]
+ @@id([organizationId,id])
+ @@unique([organizationId,phone])
+ @@index([organizationId,name,id], map: "contact_name")
+ @@map("contact")
+}
+model ServiceTemplate {
+ organizationId String @db.Uuid
+ id String @default(uuid()) @db.Uuid
+ name String
+ description String?
+ currency String
+ averageAmountMinor Int?
+ minAmountMinor Int?
+ maxAmountMinor Int?
+ durationMinutes Int?
+ active Boolean @default(true)
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ updatedAt DateTime @default(now()) @db.Timestamptz(6)
+ version Int @default(1)
+ organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+ opportunities Opportunity[]
+ @@id([organizationId,id])
+ @@index([organizationId,active,name,id], map: "service_active_name")
+ @@map("service_template")
+}
+model Opportunity {
+ organizationId String @db.Uuid
+ id String @default(uuid()) @db.Uuid
+ contactId String @db.Uuid
+ serviceTemplateId String? @db.Uuid
+ title String
+ description String?
+ status String @default("NEW")
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ updatedAt DateTime @default(now()) @db.Timestamptz(6)
+ version Int @default(1)
+ organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+ contact Contact @relation(fields: [organizationId,contactId], references: [organizationId,id], onDelete: Restrict)
+ serviceTemplate ServiceTemplate? @relation(fields: [organizationId,serviceTemplateId], references: [organizationId,id], onDelete: Restrict)
+ tasks Task[]
+ @@id([organizationId,id])
+ @@index([organizationId,status,createdAt,id], map: "opportunity_status_date")
+ @@index([organizationId,contactId], map: "opportunity_contact")
+ @@index([organizationId,serviceTemplateId], map: "opportunity_service")
+ @@map("opportunity")
+}
+model Task {
+ organizationId String @db.Uuid
+ id String @default(uuid()) @db.Uuid
+ opportunityId String @db.Uuid
+ title String
+ dueAt DateTime? @db.Timestamptz(6)
+ status String @default("OPEN")
+ completedAt DateTime? @db.Timestamptz(6)
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ updatedAt DateTime @default(now()) @db.Timestamptz(6)
+ version Int @default(1)
+ organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+ opportunity Opportunity @relation(fields: [organizationId,opportunityId], references: [organizationId,id], onDelete: Restrict)
+ @@id([organizationId,id])
+ @@index([organizationId,status,dueAt,id], map: "task_status_due")
+ @@index([organizationId,opportunityId], map: "task_opportunity")
+ @@map("task")
 }

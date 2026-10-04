@@ -1,6 +1,6 @@
 # ADR 0007 — Shell, rendu et navigation
 
-Date : 2026-10-04. Statut : implémenté pour revue Lot 2.
+Date : 2026-10-04. Statut : accepté après validation humaine du Lot 2.
 
 Le Lot 2 reste une fondation UI, sans nouveau domaine, table, migration ni dépendance. Il réutilise les tokens CSS, dictionnaires fr-FR/en-GB et primitives HTML natives (dialog avec showModal) pour Escape et l’inertie du fond, avec boucle Tab/Shift+Tab explicite pour conserver le focus dans le dialogue même avec un seul contrôle.
 
