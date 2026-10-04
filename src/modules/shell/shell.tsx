@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { flushSync } from "react-dom";
 import { z } from "zod";
 import { shellDictionaries } from "@/shared/i18n/shell";
 import { dictionaries, defaultLocale } from "@/shared/i18n/messages";
@@ -28,7 +29,7 @@ const icons: Record<Screen, string> = { today: "◷", opportunities: "↗", cont
 export function Shell({ organizationId, screen }: { organizationId: string; screen: Screen }) {
  const t = shellDictionaries[defaultLocale], brand = dictionaries[defaultLocale], [access, setAccess] = useState<Access>({ status: "loading" });
  const controller = useRef<AbortController | null>(null);
- const conceal = useCallback(() => { document.documentElement.dataset.shellPrivate = "hidden"; controller.current?.abort(); setAccess({ status: "loading" }); }, []);
+ const conceal = useCallback(() => { document.documentElement.dataset.shellPrivate = "hidden"; controller.current?.abort(); flushSync(() => setAccess({ status: "loading" })); }, []);
  const verify = useCallback(() => {
   controller.current?.abort(); document.documentElement.dataset.shellPrivate = "hidden";
   const current = new AbortController(); controller.current = current;

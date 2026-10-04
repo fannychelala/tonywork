@@ -24,6 +24,8 @@ test("A/B shell: no foreign tenant in HTML, RSC, API, DOM or navigation", async 
   await Promise.all(payloads);
   const dto = await context.request.get(`/api/shell/${a}`); expect(dto.headers()["cache-control"]).toContain("no-store"); expect(Object.keys(await dto.json()).sort()).toEqual(["id", "name"]);
   await page.goto(`/app/${a}/today`); await expect(page.getByTestId("organization-name")).toHaveText(aName);
+  expect(await page.evaluate(() => { window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true })); return document.querySelector('[data-testid="organization-name"]') === null; })).toBe(true);
+  await page.reload(); await expect(page.getByTestId("organization-name")).toHaveText(aName);
   await page.getByRole("button", { name: "Se déconnecter" }).click(); await expect(page).toHaveURL(`${base}/`);
   await page.goBack(); await expect(page.getByTestId("access-required")).toBeVisible(); await expect(page.getByTestId("organization-name")).toHaveCount(0);
  } finally { await other.dispose(); }
