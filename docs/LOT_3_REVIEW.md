@@ -102,10 +102,12 @@ pnpm audit --prod --audit-level=high
 pnpm local:up
 docker compose up -d --wait app worker
 curl --fail http://localhost:3000/readiness
+test "$(curl --fail --silent --show-error --output /dev/null --write-out '%{http_code}' http://localhost:3000/readiness)" = "200"
 docker compose exec -T postgres psql ... -c "INSERT INTO system_probe (id) VALUES ('restart-validation');"
 docker compose down
 docker compose up -d --wait app worker
 curl --fail http://localhost:3000/readiness
+test "$(curl --fail --silent --show-error --output /dev/null --write-out '%{http_code}' http://localhost:3000/readiness)" = "200"
 docker compose exec -T postgres psql ... -Atc "SELECT count(*) FROM system_probe WHERE id = 'restart-validation';"
 docker compose exec -T postgres psql ... -c "DELETE FROM system_probe WHERE id = 'restart-validation';"
 docker compose down
@@ -114,7 +116,7 @@ test -z "$(docker compose ps --status running -q)"
 
 Les URL/secrets éphémères de validation ne sont pas recopiés. Redémarrage vérifie exactement une sonde persistée ; arrêt vérifie zéro conteneur actif. Les jobs CodeQL et Dependency Review exécutent les actions GitHub existantes ; aucun changement du workflow sécurité.
 
-Résultats sur le commit applicatif `0d5ea7c` : [CI PR](https://github.com/fannychelala/tonywork/actions/runs/37217490967), [sécurité](https://github.com/fannychelala/tonywork/actions/runs/37217490982). Les checks sont également relancés par la publication finale de ce rapport ; leur état courant est consultable sur la PR.
+Résultats sur le commit applicatif `0d5ea7c` : [CI PR](https://github.com/fannychelala/tonywork/actions/runs/37217490967), [sécurité](https://github.com/fannychelala/tonywork/actions/runs/37217490982). Les checks sont également relancés par la publication finale de ce rapport et le renforcement de l’assertion HTTP 200 Docker (avant et après redémarrage) ; leur état courant est consultable sur la PR. Les commandes de statut HTTP explicite ci-dessous correspondent à cette validation finale.
 
 | Gate | Résultat réel |
 |---|---|
@@ -126,7 +128,7 @@ Résultats sur le commit applicatif `0d5ea7c` : [CI PR](https://github.com/fanny
 | Base fraîche + upgrade Lot 2 | Réussis ; sonde conservée, quatre tables FORCE RLS |
 | Docker/Compose/readiness | Stack migrée disponible, readiness 200 ; redémarrage, sonde conservée dans volume, arrêt propre vérifié |
 | Audit production | Aucun avis de vulnérabilité connu |
-| CodeQL / Dependency Review | Réussis ; consultation des alertes CodeQL ouvertes sur la branche : liste vide |
+| CodeQL / Dependency Review | Réussis ; analyse CodeQL PR `refs/pull/14/merge` sans erreur/avertissement ; alertes ouvertes sur cette référence : liste vide |
 | Vercel | Aperçu en échec, dette connue hors périmètre ; aucun déploiement production |
 
 Tous les tests préexistants conservés : 12 unitaires, 45 PostgreSQL, 14 E2E ; ajouts 7 unitaires, 44 PostgreSQL et 20 E2E. Les 8 scénarios HTTP utilisent un vrai serveur et PostgreSQL au sein des 34 E2E (pas un compteur de tests supplémentaire). Les 12 nouveaux scénarios UI complètent ces 8 scénarios et les 14 historiques. Aucun skip/test désactivé/assertion réduite ; répétitions de focus supplémentaires conservées.

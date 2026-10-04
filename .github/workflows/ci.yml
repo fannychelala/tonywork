@@ -63,12 +63,15 @@ jobs:
       - run: pnpm local:up
       - run: docker compose up -d --wait app worker
       - run: curl --fail http://localhost:3000/readiness
+      - name: Require exact readiness HTTP 200
+        run: test "$(curl --fail --silent --show-error --output /dev/null --write-out '%{http_code}' http://localhost:3000/readiness)" = "200"
       - name: Verify PostgreSQL volume survives stack restart
         run: |
           docker compose exec -T postgres psql -U local_bootstrap -d tony -v ON_ERROR_STOP=1 -c "INSERT INTO system_probe (id) VALUES ('restart-validation');"
           docker compose down
           docker compose up -d --wait app worker
           curl --fail http://localhost:3000/readiness
+          test "$(curl --fail --silent --show-error --output /dev/null --write-out '%{http_code}' http://localhost:3000/readiness)" = "200"
           test "$(docker compose exec -T postgres psql -U local_bootstrap -d tony -Atc "SELECT count(*) FROM system_probe WHERE id = 'restart-validation';")" = "1"
           docker compose exec -T postgres psql -U local_bootstrap -d tony -v ON_ERROR_STOP=1 -c "DELETE FROM system_probe WHERE id = 'restart-validation';"
       - run: docker compose logs
