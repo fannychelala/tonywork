@@ -1,4 +1,4 @@
-# Tony — Lot 3 en revue
+# Tony — Lot 4 en revue
 
 Assistant commercial et opérationnel pour les professionnels de terrain. Projet local ; fondation identité et isolation, aucune collecte réelle, aucune API payante. Brief intégral : docs/BRIEF.md. Constitution : AGENTS.md. Revues : docs/LOT_0_REVIEW.md, docs/LOT_2_REVIEW.md et docs/LOT_3_REVIEW.md.
 
@@ -55,3 +55,6 @@ Contacts, opportunités, prestations et tâches manuels ; OWNER écrit, MEMBER l
 API privée : /api/crm/<organizationId>/{contacts,services,opportunities,tasks}, fiche /<id>, et /today. DTO sans session/token, no-store et Origin strict pour mutations. Aucun cache/prefetch tenant ni idempotence réseau persistante. Aucun provider/dépendance ajouté. ADR 0008 et docs/LOT_3_PLAN.md détaillent le contrat.
 
 La CI vérifie migration fraîche et upgrade additif depuis Lot 2, tous les tests précédents et nouveaux SQL/API/E2E, les répétitions clavier/focus, audit production, Docker et sécurité. Les fixtures sont exclusivement synthétiques. La présence du CRM ne permet aucune collecte réelle ni production avant prérequis opérationnels validés. PR laissée ouverte pour revue humaine.
+
+## Opportunity Engine V1 (Lot 4)
+Moteur pur sur simulations exclusivement, sans API/UI/DB ni intégration CRM : docs/SCORING.md et ADR 0009. Profil 1.0.0 et calibration technique, non validée commercialement. Rapport : docs/LOT_4_REVIEW.md. Lot 3 validé ; Lot 4 à revoir humainement, aucun Lot 5/fusion/production autorisés.
