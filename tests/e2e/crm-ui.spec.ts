@@ -36,10 +36,11 @@ test("CRM revoked session removes open private form and history data",async({pag
 test("CRM delayed authorized response cannot restore DOM after pagehide",async({page,context})=> {
  await actor(context.request,pools.identity);const org=await organization(context.request,"Synthetic delayed response");
  expect((await context.request.post(`${base}/api/crm/${org}/contacts`,{headers:{origin:base},data:{name:"DELAYED_PRIVATE_CONTACT",phone:"+33787654321",email:null}})).status()).toBe(201);
- const payload=await (await context.request.get(`${base}/api/crm/${org}/contacts?q=`)).body();let release!:()=>void;const wait=new Promise<void>(r=>{release=r;});
- await page.route(`**/api/crm/${org}/contacts?**`,async route=>{await wait;await route.fulfill({status:200,body:payload,headers:{"content-type":"application/json","cache-control":"private, no-store"}}).catch(()=>{});});
- await page.goto(`/app/${org}/contacts`);await expect(page.getByTestId("organization-name")).toBeVisible();
+ const payload=await (await context.request.get(`${base}/api/crm/${org}/contacts?q=`)).body();let release!:()=>void,served!:()=>void;const wait=new Promise<void>(r=>{release=r;}),done=new Promise<void>(r=>{served=r;});
+ const started=page.waitForRequest(r=>r.url().includes(`/api/crm/${org}/contacts?`)&&r.method()==="GET");
+ await page.route(`**/api/crm/${org}/contacts?**`,async route=>{await wait;await route.fulfill({status:200,body:payload,headers:{"content-type":"application/json","cache-control":"private, no-store"}}).catch(()=>{});served();});
+ await page.goto(`/app/${org}/contacts`);await expect(page.getByTestId("organization-name")).toBeVisible();await started;
  expect(await page.evaluate(()=>{window.dispatchEvent(new PageTransitionEvent("pagehide",{persisted:true}));return document.querySelector(".shell-private")===null;})).toBe(true);
- release();await page.waitForTimeout(200);await expect(page.getByText("DELAYED_PRIVATE_CONTACT",{exact:true})).toHaveCount(0);
+ release();await done;await expect(page.getByText("DELAYED_PRIVATE_CONTACT",{exact:true})).toHaveCount(0);
  await page.unroute(`**/api/crm/${org}/contacts?**`);await page.reload();await expect(page.getByRole("heading",{name:"DELAYED_PRIVATE_CONTACT",exact:true})).toBeVisible();
 });
