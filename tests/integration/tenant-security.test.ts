@@ -86,6 +86,7 @@ describe("PostgreSQL is the security boundary (runtime role, real database)", ()
  it("an admin cannot audit and read within a rollback-able transaction", async () => {
   await expect(tx(async c => { const grant = (await c.query("SELECT tony_security.authorize_admin_access($1,$2::uuid,$3) AS id", [tokens.admin,b,"Synthetic support review"])).rows[0].id; await context(c,tokens.admin!,b,grant); })).rejects.toMatchObject({ code: "42501" });
  });
+ it("administrator cannot omit justification with SQL NULL", async () => { await expect(app.query("SELECT tony_security.authorize_admin_access($1,$2::uuid,NULL)", [tokens.admin,b])).rejects.toMatchObject({ code: "42501" }); });
  it("administrator must supply a non-empty justification", async () => { await expect(app.query("SELECT tony_security.authorize_admin_access($1,$2::uuid,$3)", [tokens.admin,b,"short"])).rejects.toMatchObject({ code: "42501" }); });
  it("audit cannot be modified or deleted even by the migration principal", async () => {
   await expect(migration.query("UPDATE audit_log SET event='Forged'")).rejects.toMatchObject({ code: "42501" });
