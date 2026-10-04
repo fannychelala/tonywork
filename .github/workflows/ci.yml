@@ -21,7 +21,7 @@ jobs:
       MIGRATION_DATABASE_URL: postgresql://tony_migrator:local_migrator_only@localhost:5432/tony
       NEXT_TELEMETRY_DISABLED: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with: { node-version: 24 }
       - run: npm install -g pnpm@11.25.0
@@ -43,7 +43,7 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker compose up --build -d --wait app worker
       - run: curl --fail http://localhost:3000/readiness
       - run: docker compose logs
