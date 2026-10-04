@@ -72,6 +72,11 @@ CREATE FUNCTION tony_security.crm_change() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 DECLARE c record; oid uuid; tid uuid; ev text;
 BEGIN
+ IF TG_OP='UPDATE' THEN
+  IF NEW."organizationId"<>OLD."organizationId" OR NEW.id<>OLD.id THEN
+   RAISE EXCEPTION 'Immutable identifier' USING ERRCODE='23514';
+  END IF;
+ END IF;
  SELECT * INTO c FROM tony_security.current_context();
  IF TG_OP='DELETE' THEN oid:=OLD."organizationId"; tid:=OLD.id;
  ELSE oid:=NEW."organizationId"; tid:=NEW.id; END IF;
@@ -79,9 +84,6 @@ BEGIN
   RAISE EXCEPTION 'Not authorized' USING ERRCODE='42501';
  END IF;
  IF TG_OP='UPDATE' THEN
-  IF NEW."organizationId"<>OLD."organizationId" OR NEW.id<>OLD.id THEN
-   RAISE EXCEPTION 'Immutable identifier' USING ERRCODE='23514';
-  END IF;
   IF NEW.version<>OLD.version+1 THEN RAISE EXCEPTION 'Invalid version' USING ERRCODE='23514'; END IF;
   NEW."updatedAt":=statement_timestamp();
   IF TG_TABLE_NAME='opportunity' THEN

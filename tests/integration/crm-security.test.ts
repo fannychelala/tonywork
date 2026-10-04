@@ -51,7 +51,7 @@ describe("CRM direct runtime SQL boundary",()=> {
   const foreign=randomUUID();
   await f.tx(f.tokens.other,f.b,c=>c.query('INSERT INTO contact ("organizationId",id,name,phone) VALUES ($1,$2,\'Foreign\',\'+33999999999\')',[f.b,foreign]),true);
   await expect(f.tx(f.tokens.owner,f.a,c=>c.query('UPDATE opportunity SET "contactId"=$1,version=version+1 WHERE id=$2',[foreign,f.ids.opportunity]))).rejects.toMatchObject({code:"23503"});
-  await expect(f.tx(f.tokens.owner,f.a,c=>c.query('DELETE FROM contact WHERE id=$1',[f.ids.contact]))).rejects.toMatchObject({code:"23503"});
+  await expect(f.tx(f.tokens.owner,f.a,c=>c.query('DELETE FROM contact WHERE id=$1',[f.ids.contact]))).rejects.toMatchObject({code:"23001"});
  });
  it("constraints reject invalid phone, status, amounts and completion",async()=> {
   for(const sql of ["UPDATE contact SET phone='raw',version=version+1","UPDATE opportunity SET status='INVALID',version=version+1","UPDATE service_template SET \"minAmountMinor\"=100,\"maxAmountMinor\"=10,version=version+1","UPDATE task SET status='DONE',version=version+1"])
