@@ -21,9 +21,12 @@ test("CRM API A/B denies cross-tenant and strict mutations",async({playwright,pa
  for(const kind of ["contacts","opportunities","services","tasks","today"]) {
   const denied=await a.get(url(ob,kind)),missing=await a.get(url(randomUUID(),kind));expect(denied.status()).toBe(404);expect(await denied.text()).toBe(await missing.text());expect(denied.headers()["cache-control"]).toContain("no-store");
  }
- expect((await a.get(url(oa,"contacts",id))).status()).toBe(404);
- expect((await a.patch(url(oa,"contacts",id),{headers:{origin:base},data:{version:1,name:"Forbidden"}})).status()).toBe(404);
- expect((await a.delete(url(oa,"contacts",id),{headers:{origin:base},data:{version:1}})).status()).toBe(404);
+ for(const [kind,foreignId] of [["contacts",id],["services",sid],["opportunities",oid],["tasks",(await task.json()).id]]) {
+  expect((await a.get(url(oa,kind,foreignId))).status()).toBe(404);
+  expect((await a.get(`${url(oa,kind)}?cursor=${foreignId}`)).status()).toBe(404);
+  expect((await a.patch(url(oa,kind,foreignId),{headers:{origin:base},data:{version:1,name:"Forbidden"}})).status()).toBe(404);
+  expect((await a.delete(url(oa,kind,foreignId),{headers:{origin:base},data:{version:1}})).status()).toBe(404);
+ }
  expect((await a.post(url(oa,"contacts"),{data:{name:"A",phone:"+33123456789",email:null}})).status()).toBe(403);
  expect((await a.post(url(oa,"contacts"),{headers:{origin:base},data:{name:"A",phone:"+33123456789",email:null,organizationId:ob}})).status()).toBe(400);
  expect((await b.get(url(ob,"contacts",id))).status()).toBe(200);

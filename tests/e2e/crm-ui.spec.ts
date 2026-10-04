@@ -1,4 +1,5 @@
 import {test,expect} from "@playwright/test";
+import {randomUUID} from "node:crypto";
 import {actor,organization,createPools,base} from "./fixtures/shell";
 const pools=createPools();test.beforeEach(()=>pools.identity.query("DELETE FROM auth_rate_limit"));test.afterAll(async()=>{await pools.identity.end();await pools.migration.end();});
 test("CRM UI creation, editing, focus, deletion and 320px",async({page,context},info)=> {
@@ -53,4 +54,27 @@ test("CRM maximal unbroken titles fit 320px",async({page,context})=> {
  expect((await context.request.post(`${base}/api/crm/${org}/tasks`,{headers,data:{title:"T".repeat(160),opportunityId:(await o.json()).id,dueAt:new Date().toISOString()}})).status()).toBe(201);
  await page.setViewportSize({width:320,height:720});
  for(const screen of ["today","contacts","opportunities"]){await page.goto(`/app/${org}/${screen}`);await expect(page.locator(".crm-list > li")).toHaveCount(1);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.getByRole("button",{name:"Modifier",exact:true}).click();await expect(page.getByRole("dialog")).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.keyboard.press("Escape");}
+});
+test("CRM committed creation with lost HTTP response is not automatically replayed",async({page,context})=> {
+ await actor(context.request,pools.identity);const org=await organization(context.request,"Synthetic uncertain creation");
+ await page.goto(`/app/${org}/contacts`);await page.getByRole("button",{name:"Créer — Contacts",exact:true}).click();
+ const dialog=page.getByRole("dialog",{name:"Créer — Contacts",exact:true});await dialog.getByLabel("Nom",{exact:true}).fill("COMMITTED_SYNTHETIC_CONTACT");await dialog.getByLabel("Téléphone international").fill("+33765432109");
+ let posts=0;await page.route(`**/api/crm/${org}/contacts`,async route=>{if(route.request().method()!=="POST"){await route.continue();return;}posts++;const committed=await route.fetch();expect(committed.status()).toBe(201);await route.abort("connectionfailed");});
+ await dialog.getByRole("button",{name:"Enregistrer",exact:true}).click();await expect(dialog.getByRole("alert").first()).toHaveText("Résultat incertain. Relisez la liste avant de confirmer une nouvelle création. Aucun renvoi automatique n’est effectué.");
+ await expect(dialog.getByRole("button",{name:"Enregistrer",exact:true})).toBeEnabled();
+ expect((await (await context.request.get(`${base}/api/crm/${org}/contacts`)).json()).items).toHaveLength(1);
+ await page.keyboard.press("Escape");await page.getByRole("button",{name:"Réessayer",exact:true}).click();await expect(page.getByRole("heading",{name:"COMMITTED_SYNTHETIC_CONTACT",exact:true})).toHaveCount(1);expect(posts).toBe(1);
+ await page.unroute(`**/api/crm/${org}/contacts`);
+});
+test("CRM MEMBER has readable records and no write UI on any screen",async({page,context,playwright})=> {
+ const owner=await playwright.request.newContext();await actor(owner,pools.identity);const org=await organization(owner,"Synthetic member workspace"),api=`${base}/api/crm/${org}`,headers={origin:base};
+ const contact={name:"Member-visible contact",phone:"+33754321098",email:null},service={name:"Member-visible service",description:null,currency:"EUR",averageAmountMinor:null,minAmountMinor:null,maxAmountMinor:null,durationMinutes:null,active:true};
+ const post=async(kind:string,data:object)=>{const r=await owner.post(`${api}/${kind}`,{headers,data});expect(r.status()).toBe(201);return r.json();};
+ const c=await post("contacts",contact),s=await post("services",service),opportunity={title:"Member-visible opportunity",description:null,contactId:c.id,serviceTemplateId:s.id},o=await post("opportunities",opportunity),task={title:"Member-visible task",opportunityId:o.id,dueAt:null};await post("tasks",task);
+ const uid=await actor(context.request,pools.identity);await pools.migration.query('INSERT INTO membership (id,"organizationId","userId",role) VALUES ($1,$2,$3,\'MEMBER\')',[randomUUID(),org,uid]);
+ for(const [screen,name,kind,input] of [["contacts",contact.name,"contacts",contact],["services",service.name,"services",service],["opportunities",opportunity.title,"opportunities",opportunity],["today",task.title,"tasks",task]] as const){
+  await page.goto(`/app/${org}/${screen}`);await expect(page.getByRole("heading",{name,exact:true})).toBeVisible();await expect(page.getByText("Lecture seule",{exact:true})).toBeVisible();await expect(page.getByRole("button",{name:/^(Créer|Modifier|Supprimer)/})).toHaveCount(0);await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByText("Voir la fiche",{exact:true}).focus();await page.keyboard.press("Enter");await expect(page.locator("details[open]")).toHaveCount(1);expect((await context.request.post(`${api}/${kind}`,{headers,data:input})).status()).toBe(403);
+ }
+ await owner.dispose();
 });
