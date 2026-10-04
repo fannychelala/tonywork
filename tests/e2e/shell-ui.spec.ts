@@ -12,13 +12,16 @@ test("shell keyboard, modal, drawer, touch targets, forms and visual states", as
  }
  const about = page.getByRole("button", { name: "À propos de cet espace" }); await about.focus(); await page.keyboard.press("Enter");
  const modal = page.getByRole("dialog", { name: "Les écrans se construisent" }); await expect(modal).toBeVisible();
+ await page.screenshot({ path: info.outputPath("modal.png"), fullPage: true });
  const close = modal.getByRole("button", { name: "Fermer" }); await expect(close).toBeFocused();
  await page.keyboard.press("Tab"); await expect(close).toBeFocused(); await page.keyboard.press("Escape"); await expect(modal).not.toBeVisible(); await expect(about).toBeFocused();
  const demo = page.getByRole("button", { name: "Voir un exemple de formulaire" }); await demo.click();
  const form = page.getByRole("dialog", { name: "Exemple de formulaire" }); await form.getByRole("button", { name: "Vérifier l’exemple" }).click();
  await expect(form.getByRole("alert")).toHaveText("Saisissez un intitulé de 2 à 40 caractères.");
  const field = form.getByLabel("Intitulé de démonstration"); await expect(field).toHaveAttribute("aria-invalid", "true");
+ await page.screenshot({ path: info.outputPath("form-invalid.png"), fullPage: true });
  await field.fill("Exemple fictif"); await form.getByRole("button", { name: "Vérifier l’exemple" }).click(); await expect(form.getByRole("status")).toContainText("Aucune donnée n’a été enregistrée");
+ await page.screenshot({ path: info.outputPath("form-valid.png"), fullPage: true });
  await page.keyboard.press("Escape"); await expect(demo).toBeFocused();
  await page.setViewportSize({ width: 320, height: 720 });
  const menu = page.getByRole("button", { name: "Ouvrir le menu" }); await menu.focus(); await page.keyboard.press("Enter");

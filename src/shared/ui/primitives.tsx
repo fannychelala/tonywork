@@ -5,7 +5,7 @@ export function Button({ className = "", variant = "primary", ...props }: Compon
 export function Card({ className = "", ...props }: HTMLAttributes<HTMLElement>) { return <section {...props} className={`ui-card ${className}`} />; }
 export function Alert({ children, error = false }: { children: ReactNode; error?: boolean }) { return <p className={`ui-alert${error ? " ui-alert--error" : ""}`} role={error ? "alert" : "status"}>{children}</p>; }
 export function EmptyState({ title, detail, children }: { title: string; detail: string; children?: ReactNode }) {
- return <Card className="empty-state"><span className="empty-mark" aria-hidden="true">↗</span><h2>{title}</h2><p>{detail}</p>{children}</Card>;
+ return <Card className="empty-state"><span className="empty-mark" aria-hidden="true">↗</span><h2>{title}</h2><p>{detail}</p>{children && <div className="state-actions">{children}</div>}</Card>;
 }
 export function Skeleton({ label }: { label: string }) { return <div className="ui-skeleton" role="status" aria-label={label}><span /><span /><span /></div>; }
 export function Field({ label, error, id, ...props }: InputHTMLAttributes<HTMLInputElement> & { id: string; label: string; error?: string | undefined }) {
