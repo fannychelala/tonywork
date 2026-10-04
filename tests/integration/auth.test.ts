@@ -1,9 +1,11 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
-import { afterAll, it, expect } from "vitest";
+import { afterAll, beforeEach, it, expect } from "vitest";
 import { createAuth } from "../../src/modules/auth/auth";
 const { auth, db } = createAuth(process.env);
 const base = process.env.BETTER_AUTH_URL!;
+// Each scenario starts with independent limiter state; the dedicated limit test keeps every attempt.
+beforeEach(async () => { await db.rateLimit.deleteMany(); });
 afterAll(async () => { await db.rateLimit.deleteMany(); await db.$disconnect(); });
 async function request(path: string, body?: object, cookie?: string) {
  return auth.handler(new Request(`${base}/api/auth${path}`, { method: body ? "POST" : "GET", headers: { "content-type": "application/json", origin: base, ...(cookie ? { cookie } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }));
@@ -45,7 +47,7 @@ it("password reset revokes sessions and the old password", async () => {
 
 it("MFA requires a successful second factor before granting a login session", async () => {
  const email = `${randomUUID()}@example.invalid`; const password = "MFA-synthetic-password-42!";
- await request("/sign-up/email", { name: "Synthetic MFA", email, password });
+ expect((await request("/sign-up/email", { name: "Synthetic MFA", email, password })).status).toBe(200);
  const mail = await db.authMail.findFirstOrThrow({ where: { recipient: email, kind: "verification" } }); await auth.handler(new Request(mail.url));
  const login = await request("/sign-in/email", { email, password }); expect(login.status).toBe(200);
  let cookie = login.headers.getSetCookie().map(c => c.split(";")[0]).join("; ");

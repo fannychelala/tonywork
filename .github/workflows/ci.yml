@@ -32,7 +32,7 @@ jobs:
       - name: Initialize least-privilege local roles
         run: psql postgresql://local_bootstrap:local_bootstrap_only@localhost:5432/tony -v ON_ERROR_STOP=1 -f infra/postgres/init.sql
       - name: Generate ephemeral authentication secret
-        run: node -e "require('fs').appendFileSync(process.env.GITHUB_ENV, 'BETTER_AUTH_SECRET=' + require('crypto').randomBytes(32).toString('base64') + '\n')"
+        run: node -e "const secret = require('crypto').randomBytes(32).toString('base64'); console.log('::add-mask::' + secret); require('fs').appendFileSync(process.env.GITHUB_ENV, 'BETTER_AUTH_SECRET=' + secret + '\n')"
       - run: pnpm db:migrate
       - run: pnpm lint
       - run: pnpm typecheck
