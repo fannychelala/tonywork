@@ -36,7 +36,7 @@ pnpm test:integration
 pnpm exec playwright install chromium
 pnpm test:e2e
 ```
-Tests d’intégration : PostgreSQL démarré et migrations appliquées obligatoires. E2E : build et DATABASE_URL configurée ; tests UI disponibles sans DB, readiness exige la DB et la sonde migrée. Ne pas confondre health et readiness.
+Tests d’intégration : PostgreSQL démarré et migrations appliquées obligatoires. E2E : build et DATABASE_URL configurée ; la suite complète utilise les identités et organisations synthétiques en DB ; readiness exige la DB et la sonde migrée. Ne pas confondre health et readiness.
 
 ## CI et sécurité
 CI : lint, typecheck, unitaires, vrais tests PostgreSQL de privilèges, build, Chromium desktop/mobile, audit dépendances et smoke Docker. CodeQL, Dependency Review et Dependabot configurés. Activer côté GitHub les protections de branche, secret scanning et push protection selon les capacités du dépôt. Aucune CI distante n’est réputée validée tant qu’elle n’a pas tourné.

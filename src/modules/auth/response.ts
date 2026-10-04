@@ -1,7 +1,9 @@
 // Public auth APIs must not expose bearer session tokens already held in HttpOnly cookies.
 export async function protectSessionResponse(response: Response): Promise<Response> {
  if (!response.headers.get("content-type")?.includes("application/json")) return response;
- const data: unknown = await response.clone().json();
+ const body = await response.clone().text();
+ if (!body) return response;
+ const data: unknown = JSON.parse(body);
  function strip(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(strip);
   if (value && typeof value === "object") {

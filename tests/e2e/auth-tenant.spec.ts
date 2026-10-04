@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { test, expect, type APIRequestContext } from "@playwright/test";
 const base = "http://127.0.0.1:3000";
 const identities = new Pool({ connectionString: process.env.AUTH_DATABASE_URL });
+test.beforeEach(async () => { await identities.query("DELETE FROM auth_rate_limit"); });
 test.afterAll(async () => { await identities.end(); });
 async function signupAndLogin(request: APIRequestContext) {
  const email = `${randomUUID()}@example.invalid`; const password = "Synthetic-password-42!";

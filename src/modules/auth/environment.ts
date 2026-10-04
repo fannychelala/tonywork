@@ -12,6 +12,8 @@ export function parseAuthEnvironment(input: unknown) {
  if (!parsed.success) throw new Error("Invalid authentication configuration");
  const host = new URL(parsed.data.BETTER_AUTH_URL).hostname;
  if (!["localhost", "127.0.0.1", "[::1]"].includes(host)) throw new Error("Local mail requires a loopback authentication URL");
- if (runtime.DATABASE_URL === parsed.data.AUTH_DATABASE_URL) throw new Error("Authentication and tenant credentials must be separate");
- return { ...runtime, ...parsed.data };
+ const tenantDatabase = new URL(runtime.DATABASE_URL);
+ const identityDatabase = new URL(parsed.data.AUTH_DATABASE_URL);
+ if (!identityDatabase.username || identityDatabase.username === tenantDatabase.username) throw new Error("Authentication and tenant credentials must be separate");
+ return { ...runtime, ...parsed.data, BETTER_AUTH_URL: new URL(parsed.data.BETTER_AUTH_URL).origin };
 }
