@@ -20,7 +20,7 @@ export async function handle(request:Request,params:{organizationId:string;kind:
   const org=z.uuid().safeParse(params.organizationId);if(!org.success)return error(404);
   const method=request.method as "GET"|"POST"|"PATCH"|"DELETE";if(method!=="GET"&&!sameOrigin(request))return error(403);
   if(params.id&&!z.uuid().safeParse(params.id).success)return error(404);
-  if(params.kind==="today") {if(method!=="GET"||params.id)return error(400);return Response.json(await today(session.session.token,org.data),{headers});}
+  if(params.kind==="today") {if(method!=="GET"||params.id||new URL(request.url).searchParams.size>0)return error(400);return Response.json(await today(session.session.token,org.data),{headers});}
   const kind=kindSchema.safeParse(params.kind);if(!kind.success)return error(404);
   if((method==="POST"&&params.id)||(["PATCH","DELETE"].includes(method)&&!params.id))return error(400);
   const input=method==="GET"?Object.fromEntries(new URL(request.url).searchParams):await body(request);

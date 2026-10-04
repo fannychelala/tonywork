@@ -2,8 +2,8 @@ import {test,expect} from "@playwright/test";
 import {randomUUID} from "node:crypto";
 import {actor,organization,createPools,base} from "./fixtures/shell";
 const pools=createPools();test.beforeEach(()=>pools.identity.query("DELETE FROM auth_rate_limit"));test.afterAll(async()=>{await pools.identity.end();await pools.migration.end();});
-test("CRM API A/B denies cross-tenant and strict mutations",async({playwright})=> {
- const a=await playwright.request.newContext(),b=await playwright.request.newContext();
+test("CRM API A/B denies cross-tenant and strict mutations",async({playwright,page,context})=> {
+ const a=context.request,b=await playwright.request.newContext();
  await actor(a,pools.identity);await actor(b,pools.identity);
  const oa=await organization(a,"Synthetic CRM A"),ob=await organization(b,"SECRET_CRM_B");
  const url=(org:string,kind:string,id="")=>`${base}/api/crm/${org}/${kind}${id?`/${id}`:""}`;
@@ -18,5 +18,12 @@ test("CRM API A/B denies cross-tenant and strict mutations",async({playwright})=
  expect((await a.post(url(oa,"contacts"),{data:{name:"A",phone:"+33123456789",email:null}})).status()).toBe(403);
  expect((await a.post(url(oa,"contacts"),{headers:{origin:base},data:{name:"A",phone:"+33123456789",email:null,organizationId:ob}})).status()).toBe(400);
  expect((await b.get(url(ob,"contacts",id))).status()).toBe(200);
- await a.dispose();await b.dispose();
+ const payloads:Promise<void>[]=[];
+ page.on("response",r=>{if(r.url().startsWith(base)&&/text|json|javascript/.test(r.headers()["content-type"]??""))payloads.push((async()=>{let body:string;try{body=await r.text();}catch{return;}expect(body).not.toContain("SECRET_CONTACT_B");expect(body).not.toContain("SECRET_CRM_B");})());});
+ for(const screen of ["contacts","opportunities","services","today"]){
+  await page.goto(`/app/${oa}/${screen}`);await expect(page.getByTestId("organization-name")).toHaveText("Synthetic CRM A");
+  await page.goto(`/app/${ob}/${screen}`);await expect(page.getByTestId("access-denied")).toBeVisible();
+  for(const headers of [{},{RSC:"1"}]){const r=await a.get(`${base}/app/${ob}/${screen}`,{headers});expect(await r.text()).not.toContain("SECRET_CONTACT_B");}
+ }
+ await Promise.all(payloads);await b.dispose();
 });

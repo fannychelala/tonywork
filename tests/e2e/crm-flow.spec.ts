@@ -28,3 +28,14 @@ test("CRM API CRUD, version, replay and tenant permissions",async({context,playw
  expect((await member.delete(`${api}/contacts/${c.id}`,{headers,data:{version:1}})).status()).toBe(403);
  await member.dispose();
 });
+test("Today uses existing organization timezone and half-open civil bounds",async({context})=> {
+ await actor(context.request,pools.identity);const org=await organization(context.request,"Synthetic timezone");const api=`${base}/api/crm/${org}`,headers={origin:base};
+ const post=async(kind:string,data:object)=>{const r=await context.request.post(`${api}/${kind}`,{headers,data});expect(r.status()).toBe(201);return r.json();};
+ const c=await post("contacts",{name:"Timezone contact",phone:"+33712345678",email:null});const o=await post("opportunities",{title:"Timezone opportunity",contactId:c.id,serviceTemplateId:null,description:null});
+ const first=await (await context.request.get(`${api}/today`)).json();expect(first.timeZone).toBe("Europe/Paris");
+ for(const [title,dueAt] of [["at-start",first.start],["at-end",first.finish],["overdue",new Date(new Date(first.start).getTime()-1).toISOString()],["undated",null]])await post("tasks",{title,opportunityId:o.id,dueAt});
+ const data=await (await context.request.get(`${api}/today`)).json();expect(data.due.map((r:{title:string})=>r.title)).toEqual(["at-start"]);expect(data.overdue.map((r:{title:string})=>r.title)).toEqual(["overdue"]);
+ expect((await context.request.get(`${api}/today?timeZone=UTC`)).status()).toBe(400);
+ const other=await context.request.post(`${base}/api/organizations`,{headers,data:{name:"Other timezone",defaultLocale:"en-GB",currency:"USD",timeZone:"America/New_York"}});expect(other.status()).toBe(201);const oid=(await other.json()).id;
+ expect((await (await context.request.get(`${base}/api/crm/${oid}/today`)).json()).timeZone).toBe("America/New_York");
+});
