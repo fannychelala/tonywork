@@ -1,8 +1,15 @@
 import {describe,it,expect} from "vitest";
 import {randomUUID} from "node:crypto";
+import {parseAmount,amountInput} from "../../src/modules/crm/money-input";
 import {sqlState} from "../../src/modules/crm/errors";
 import {inputs,updates,listInput,validateAmounts} from "../../src/modules/crm/validation";
 describe("CRM strict boundaries",()=> {
+ it("decimal input converts exactly for each currency",()=> {
+  expect(parseAmount("1200,01","EUR")).toBe(120001);expect(parseAmount("1.234","KWD")).toBe(1234);expect(parseAmount("1200","JPY")).toBe(1200);expect(parseAmount("1.23","JPY")).toBeUndefined();expect(parseAmount("0.001","EUR")).toBeUndefined();expect(parseAmount("","GBP")).toBeNull();expect(parseAmount("999999999","EUR")).toBeUndefined();
+ });
+ it("money editing preserves minor integer precision",()=> {
+  expect(amountInput(120001,"EUR")).toBe("1200.01");expect(amountInput(1234,"KWD")).toBe("1.234");expect(amountInput(1200,"JPY")).toBe("1200");
+ });
  it("maps adapter metadata without exposing details",()=> {
   expect(sqlState({code:"P2010",meta:{driverAdapterError:{cause:{originalCode:"23505",originalMessage:"SECRET"}}}})).toBe("23505");
   expect(sqlState({meta:{driverAdapterError:{cause:{originalCode:"42501"}}}})).toBe("42501");expect(sqlState(null)).toBeUndefined();
