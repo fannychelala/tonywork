@@ -12,7 +12,7 @@ describe("CRM direct runtime SQL boundary",()=> {
   expect((await f.app.query("SELECT has_function_privilege('tony_app','tony_security.crm_change()','EXECUTE') AS rights")).rows).toEqual([{rights:false}]);
  });
  it.each(tables)("%s no context/GUC does not authorize SELECT or INSERT",async table=> {
-  await f.tx(null,f.a,async c=> {await c.query("SELECT set_config('app.organization_id',$1,true)",[f.a]);expect((await c.query(`SELECT * FROM ${table}`)).rows).toEqual([]);});
+  await f.tx(null,f.a,async c=> {await c.query("SELECT set_config('app.organization_id',$1,true)",[f.a]);expect((await c.query(`SELECT * FROM ${table}`)).rows).toEqual([]);expect((await c.query(`UPDATE ${table} SET version=version+1`)).rowCount).toBe(0);expect((await c.query(`DELETE FROM ${table}`)).rowCount).toBe(0);});
   await expect(f.tx(null,f.a,c=>f.insert(c,table,f.a,randomUUID()))).rejects.toMatchObject({code:"42501"});
  });
  it.each(tables)("%s A cannot select/update/delete/insert B, B unchanged",async table=> {
@@ -104,6 +104,21 @@ describe("CRM direct runtime SQL boundary",()=> {
   const columns=(await f.app.query("SELECT column_name FROM information_schema.columns WHERE table_name='opportunity' AND column_name IN ('deletedAt','archivedAt','deleted','archived')")).rows;expect(columns).toEqual([]);
   await f.tx(f.tokens.owner,f.a,async c=>{await c.query("UPDATE opportunity SET status='ARCHIVED',version=version+1");await c.query("UPDATE opportunity SET status='NEW',version=version+1");});
   await expect(f.tx(f.tokens.owner,f.a,async c=>{await c.query("UPDATE opportunity SET status='ARCHIVED',version=version+1");await c.query("UPDATE opportunity SET status='WON',version=version+1");})).rejects.toMatchObject({code:"23514"});
+ });
+
+ it("runtime cannot disable RLS or truncate CRM",async()=> {
+  await expect(f.app.query("ALTER TABLE contact DISABLE ROW LEVEL SECURITY")).rejects.toMatchObject({code:"42501"});
+  await expect(f.app.query("TRUNCATE contact CASCADE")).rejects.toMatchObject({code:"42501"});
+ });
+ it("removing Membership closes already-open CRM access",async()=> {
+  await f.tx(f.tokens.member,f.a,async c=> {
+   await f.migration.query('DELETE FROM membership WHERE "organizationId"=$1 AND "userId"=$2',[f.a,f.users.member]);
+   for(const table of tables)expect((await c.query(`SELECT * FROM ${table}`)).rows).toEqual([]);
+  });
+ });
+ it("expiring a session closes already-open CRM access",async()=> {
+  const token=randomUUID(),sid=randomUUID();await f.auth.query('INSERT INTO auth_session (id,token,"userId","expiresAt","updatedAt") VALUES ($1,$2,$3,now()+interval \'1 hour\',now())',[sid,token,f.users.owner]);
+  await f.tx(token,f.a,async c=>{await f.auth.query('UPDATE auth_session SET "expiresAt"=now()-interval \'1 second\' WHERE id=$1',[sid]);for(const table of tables)expect((await c.query(`SELECT * FROM ${table}`)).rows).toEqual([]);});
  });
 
 });
