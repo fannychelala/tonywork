@@ -1,0 +1,24 @@
+import {test,expect} from "@playwright/test";
+import {actor,organization,createPools,base} from "./fixtures/shell";
+const pools=createPools();test.beforeEach(()=>pools.identity.query("DELETE FROM auth_rate_limit"));test.afterAll(async()=>{await pools.identity.end();await pools.migration.end();});
+test("CRM UI creation, editing, focus, deletion and 320px",async({page,context},info)=> {
+ await actor(context.request,pools.identity);const org=await organization(context.request,"Atelier synthétique CRM");
+ await page.goto(`/app/${org}/contacts`);const create=page.getByRole("button",{name:"Créer — Contacts",exact:true});await create.focus();await page.keyboard.press("Enter");
+ let dialog=page.getByRole("dialog",{name:"Créer — Contacts",exact:true});await expect(dialog.getByRole("button",{name:"Fermer"})).toBeFocused();
+ await dialog.getByRole("button",{name:"Enregistrer",exact:true}).click();await expect(dialog.getByRole("alert").first()).toBeVisible();
+ await dialog.getByLabel("Nom",{exact:true}).fill("Contact synthétique");await dialog.getByLabel("Téléphone international").fill("+33612345678");
+ let submissions=0;await page.route(`**/api/crm/${org}/contacts`,async route=>{if(route.request().method()==="POST"){submissions++;await new Promise(r=>setTimeout(r,600));}await route.continue();});
+ await dialog.getByRole("button",{name:"Enregistrer",exact:true}).click();await expect(dialog.getByRole("button",{name:"Enregistrer",exact:true})).toBeDisabled();await dialog.locator("form").evaluate(f=>{f.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));});
+ await expect(page.getByRole("heading",{name:"Contact synthétique",exact:true})).toBeVisible();expect(submissions).toBe(1);await page.unroute(`**/api/crm/${org}/contacts`);await expect(dialog).not.toBeVisible();await expect(create).toBeFocused();
+ await page.screenshot({path:info.outputPath("contacts.png"),fullPage:true});
+ const c=(await (await context.request.get(`${base}/api/crm/${org}/contacts`)).json()).items[0];
+ const service=await context.request.post(`${base}/api/crm/${org}/services`,{headers:{origin:base},data:{name:"Prestation synthétique",description:null,currency:"EUR",averageAmountMinor:10000,minAmountMinor:null,maxAmountMinor:null,durationMinutes:60,active:true}});expect(service.status()).toBe(201);
+ await page.goto(`/app/${org}/opportunities`);await page.getByRole("button",{name:"Créer — Opportunités",exact:true}).click();dialog=page.getByRole("dialog",{name:"Créer — Opportunités",exact:true});
+ await dialog.getByLabel("Intitulé",{exact:true}).fill("Opportunité synthétique");await expect(dialog.getByLabel("Contact",{exact:true}).getByRole("option",{name:"Contact synthétique"})).toHaveCount(1);await dialog.getByLabel("Contact",{exact:true}).selectOption(c.id);
+ await dialog.getByRole("button",{name:"Enregistrer",exact:true}).click();await expect(page.getByRole("heading",{name:"Opportunité synthétique",exact:true})).toBeVisible();
+ await page.getByRole("button",{name:"Modifier",exact:true}).click();dialog=page.getByRole("dialog",{name:"Modifier — Opportunité synthétique",exact:true});await dialog.getByLabel("État",{exact:true}).selectOption("ARCHIVED");await dialog.getByRole("button",{name:"Enregistrer",exact:true}).click();await expect(page.locator(".crm-list")).toContainText("Archivé");
+ await page.screenshot({path:info.outputPath("opportunities.png"),fullPage:true});
+ await page.goto(`/app/${org}/today`);await page.getByRole("button",{name:"Créer — Tâches",exact:true}).click();dialog=page.getByRole("dialog",{name:"Créer — Tâches",exact:true});await dialog.getByLabel("Intitulé",{exact:true}).fill("Tâche synthétique");const opp=(await (await context.request.get(`${base}/api/crm/${org}/opportunities`)).json()).items[0];await expect(dialog.getByLabel("Opportunité",{exact:true}).getByRole("option",{name:"Opportunité synthétique"})).toHaveCount(1);await dialog.getByLabel("Opportunité",{exact:true}).selectOption(opp.id);await dialog.getByRole("button",{name:"Enregistrer",exact:true}).click();await expect(page.getByRole("heading",{name:"Tâche synthétique",exact:true})).toBeVisible();
+ await page.setViewportSize({width:320,height:720});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath("today-320.png"),fullPage:true});
+ await page.getByRole("button",{name:"Supprimer",exact:true}).click();dialog=page.getByRole("dialog",{name:"Confirmer la suppression — Tâche synthétique",exact:true});await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"Supprimer",exact:true})).toBeFocused();await page.getByRole("button",{name:"Supprimer",exact:true}).click();await dialog.getByRole("button",{name:"Confirmer la suppression",exact:true}).click();await expect(page.getByRole("heading",{name:"Tâche synthétique",exact:true})).toHaveCount(0);
+});

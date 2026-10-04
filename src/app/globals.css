@@ -88,3 +88,22 @@ html[data-shell-private=hidden] .shell-private { display: none; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
 
 .state-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-2); }
+
+/* Lot 3: bounded CRM lists and forms reuse Lot 2 primitives. */
+.crm-panel { margin-bottom: 24px; }
+.crm-panel h2:focus { outline: 3px solid var(--color-focus); outline-offset: 4px; }
+.crm-filters { display: flex; flex-wrap: wrap; gap: 16px; margin: 24px 0; }
+.crm-filters > * { flex: 1 1 180px; min-width: 0; }
+.crm-list { list-style: none; padding: 0; margin: 16px 0; }
+.crm-list > li { padding: 20px 0; border-top: 1px solid var(--color-border); overflow-wrap: anywhere; }
+.crm-list h3 { margin-top: 0; }
+.crm-list summary { min-height: 44px; cursor: pointer; display: flex; align-items: center; font-weight: 600; }
+.crm-list dl > div { margin: 12px 0; }
+.crm-list dt { font-weight: 600; }
+.crm-list dd { margin: 4px 0; white-space: pre-wrap; }
+.crm-form { display: grid; gap: 16px; }
+.crm-form select,.crm-filters select { width: 100%; min-height: 44px; padding: 10px; border: 1px solid var(--color-border); border-radius: 8px; font: inherit; background: white; color: inherit; }
+.crm-check { min-height: 44px; display: flex; align-items: center; gap: 12px; }
+.crm-check input { width: 24px; height: 24px; }
+.crm-panel select:focus-visible,.crm-form select:focus-visible,.crm-list summary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 4px; }
+@media (max-width: 480px) { .crm-panel { padding: 16px; } .crm-list .state-actions { flex-wrap: wrap; } }
