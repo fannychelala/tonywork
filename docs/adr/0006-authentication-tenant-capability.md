@@ -28,3 +28,6 @@ Tests directs avec tony_app : contexte absent/falsifié, cross-tenant, sessions 
 
 ## Limitation du rate limiting local
 Aucun header IP fourni par le client n’est réputé fiable. En local, Better Auth utilise son bucket partagé par route dans PostgreSQL (20 essais de connexion/minute et 5 resets/minute). Test de rotation de x-forwarded-for : la limite reste active. Avant production, configurer les proxies de confiance et les buckets par IP ; aucune configuration production n’est autorisée avec l’outbox locale.
+
+## Changements d’assurance des sessions
+Un trigger PostgreSQL révoque toutes les sessions existantes lors d’un changement du rôle plateforme, de l’état MFA ou d’une dévérification email. Une session créée avant activation MFA ne peut donc hériter d’une assurance supérieure. Better Auth recrée la session courante après la preuve TOTP ; ce comportement et la révocation d’une seconde session antérieure sont testés.

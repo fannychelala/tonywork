@@ -51,6 +51,7 @@ it("MFA requires a successful second factor before granting a login session", as
  const mail = await db.authMail.findFirstOrThrow({ where: { recipient: email, kind: "verification" } }); await auth.handler(new Request(mail.url));
  const login = await request("/sign-in/email", { email, password }); expect(login.status).toBe(200);
  let cookie = login.headers.getSetCookie().map(c => c.split(";")[0]).join("; ");
+ const earlierCookie = (await request("/sign-in/email", { email, password })).headers.getSetCookie().map(c => c.split(";")[0]).join("; ");
  const enable = await request("/two-factor/enable", { password }, cookie); expect(enable.status).toBe(200);
  const data = await enable.json(); const secret = new URL(data.totpURI).searchParams.get("secret")!;
  const { createHmac } = await import("node:crypto");
@@ -62,7 +63,9 @@ it("MFA requires a successful second factor before granting a login session", as
   const digest = createHmac("sha1",bytes).update(counter).digest(); const offset = digest[digest.length-1]! & 15;
   return ((digest.readUInt32BE(offset)&0x7fffffff)%1_000_000).toString().padStart(6,"0");
  }
- expect((await request("/two-factor/verify-totp", { code: code() }, cookie)).status).toBe(200);
+ const enrollment = await request("/two-factor/verify-totp", { code: code() }, cookie); expect(enrollment.status).toBe(200);
+ expect(await (await request("/get-session", undefined, earlierCookie)).json()).toBeNull();
+ cookie = enrollment.headers.getSetCookie().map(c => c.split(";")[0]).join("; ");
  expect((await db.user.findUniqueOrThrow({ where: { email } })).twoFactorEnabled).toBe(true);
  await request("/sign-out", {}, cookie);
  const challenge = await request("/sign-in/email", { email, password }); expect(challenge.status).toBe(200); expect((await challenge.json()).twoFactorRedirect).toBe(true);
