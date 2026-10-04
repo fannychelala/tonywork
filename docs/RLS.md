@@ -1,7 +1,13 @@
-# Row Level Security
+# Row Level Security — Lot 1
 
-## État du Lot 0
-RLS délibérément différée au Lot 1 : aucune table tenantée au Lot 0. Tests PostgreSQL vérifient le rôle runtime sans superuser/BYPASSRLS, non propriétaire et sans CREATE.
+ENABLE et FORCE RLS sur organization, membership et audit_log. tony_app est non propriétaire, sans superuser/BYPASSRLS, sans héritage du migrateur ni accès aux tables d’identité. Sans contexte valide, SELECT renvoie zéro ligne et aucune écriture tenant n’est autorisée.
 
-## Exigences et suites
-Chaque table sensible : ENABLE ROW LEVEL SECURITY puis FORCE ROW LEVEL SECURITY ; politiques USING et WITH CHECK sur organizationId. Contexte établi avec set_config(..., true) dans la même transaction que les requêtes. Sans contexte : refus par défaut. Ne jamais SET global sur connexion poolée. Séparer tony_migrator/tony_app ; runtime ne doit jamais hériter du rôle propriétaire. Tests obligatoires sur vraies connexions runtime : A ne lit/modifie/supprime/insère pas B ; absence contexte ; retour pool ; relations cross-tenant ; accès admin audité. Pas de commande test:rls vide prétendant couvrir une sécurité absente.
+Un GUC défini par le client n’autorise rien. open_context vérifie directement la session, son expiration, l’email vérifié et la Membership dans PostgreSQL. Le contexte privé est lié au backend et à la transaction ; current_context revalide ces conditions dans les politiques. withTenant ouvre, utilise puis ferme le contexte dans une transaction. Retour au pool sans autorisation persistante.
+
+OWNER lit son organisation et ses adhésions et peut modifier les paramètres et rôles autorisés. MEMBER lit, sans pouvoir modifier. Le dernier OWNER ne peut être rétrogradé. tony_app ne possède aucun INSERT/DELETE direct sur les tables tenantées ; la création d’organisation passe par une fonction contrôlée qui crée atomiquement l’adhésion OWNER et l’audit.
+
+PLATFORM_ADMIN n’a aucun accès implicite. Consultation en lecture seule avec MFA, raison et grant court, dont l’audit est commité avant la transaction de consultation. Un ROLLBACK de lecture ne supprime pas cet audit.
+
+Les fonctions SECURITY DEFINER ont un propriétaire offline, un search_path fixe, aucun SQL dynamique et aucun EXECUTE PUBLIC. Le compte migrateur reste un principal de confiance, distinct du runtime. Voir ADR 0006 pour les limites et le modèle de menace.
+
+Preuves exécutables : tests/integration/tenant-security.test.ts utilise réellement tony_app pour les lectures/écritures cross-tenant, contextes absents ou falsifiés, révocation, escalade, accès privés et DDL ; tests/integration/database.test.ts conserve les contrôles de moindre privilège. Aucun mock de RLS.

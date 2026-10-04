@@ -1,7 +1,7 @@
 # Constitution Codex — Tony
 
 ## Vision et périmètre
-Transformer les demandes entrantes en opportunités, aider à agir et mesurer la valeur convertie. Lire docs/BRIEF.md avant toute évolution importante. Lot 0 uniquement : aucune fonctionnalité métier. Arrêt obligatoire après Lot 0 pour revue humaine ; aucun Lot 1 sans validation explicite.
+Transformer les demandes entrantes en opportunités, aider à agir et mesurer la valeur convertie. Lire docs/BRIEF.md avant toute évolution importante. Lot 0 officiellement validé le 4 octobre 2026. Lot 1 autorisé : auth, organisations/adhésions, sessions, audit et RLS. Arrêt obligatoire après Lot 1 ; aucun Lot 2 sans validation explicite.
 
 ## Méthode
 Inspecter l’existant, lire ce fichier, identifier modules et risques, exposer le plan, implémenter, tester, vérifier les régressions, documenter. Pour un bug significatif : reproduire, trouver la cause, corriger, ajouter un test de régression et couvrir les cas proches.
@@ -13,7 +13,7 @@ Monolithe modulaire Next.js App Router. UI → action/API → service métier �
 TypeScript strict ; pas de any sans justification. Zod à toutes les frontières externes. Montants entiers en unités mineures et devise explicite ; téléphones E.164, jamais clés primaires ; dates UTC avec timezone explicite ; IDs imprévisibles. Fonctions et composants courts. Aucun code spécifique à un client : configuration, entitlement, flag ou template. Catalogue source de vérité des prix ; scoring déterministe et versionné, jamais calculé arbitrairement par LLM.
 
 ## Sécurité et isolation
-Priorités : sécurité, isolation, intégrité, fiabilité, simplicité, maintenabilité, UX, performances. Toutes les données métier portent organizationId. Contexte tenant dérivé d’une session autorisée, jamais accepté d’un champ client seul. Requêtes tenantées et RLS FORCE ; rôle applicatif non propriétaire, sans BYPASSRLS. Contexte transactionnel local ; ne pas réutiliser un contexte de connexion. Auth et RLS implémentées au Lot 1, pas avant. PLATFORM_ADMIN distinct des rôles client, accès tenant audité. Audit append-only. Aucun secret, token, transcript complet ou donnée personnelle dans les logs. Aucun fichier .env commité.
+Priorités : sécurité, isolation, intégrité, fiabilité, simplicité, maintenabilité, UX, performances. Toutes les données métier portent organizationId. Contexte tenant dérivé d’une session autorisée, jamais accepté d’un champ client seul. Requêtes tenantées et RLS FORCE ; rôle applicatif non propriétaire, sans BYPASSRLS. Contexte transactionnel local ; ne pas réutiliser un contexte de connexion. Auth/RLS au Lot 1 : voir ADR 0006. Séparer tony_auth/tony_app/tony_migrator. Les GUC ne constituent pas une preuve d’autorisation. PLATFORM_ADMIN distinct des rôles client, accès tenant audité. Audit append-only. Aucun secret, token, transcript complet ou donnée personnelle dans les logs. Aucun fichier .env commité.
 
 ## Internationalisation et UX
 Textes centralisés dans src/shared/i18n, aucun texte UI dispersé. Séparer userLocale, organizationDefaultLocale et prospectLocale ; langue admin indépendante. Formats Intl avec devise et timezone explicites. Mobile first, focus visible, clavier, labels, contraste et cibles tactiles ≥44px. Pas de dashboard analytique complexe à l’accueil.

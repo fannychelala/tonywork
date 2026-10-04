@@ -1,22 +1,11 @@
-# Architecture initiale — Lot 0
+# Architecture — Lots 0 et 1
 
-Statut : proposition mise en œuvre, en attente de revue humaine.
+Lot 0 validé. Lot 1 implémenté pour revue humaine. Next.js 16 / React 19 / TypeScript strict, PostgreSQL 18, Prisma 7 / pg, Zod, Node 24 et pnpm frozen lockfile. Monolithe modulaire portable par Docker ; worker sans workflow métier à ce stade.
 
-Next.js 16 / React 19 / TypeScript strict, PostgreSQL 18, Prisma 7 avec adaptateur pg, Zod. Node 24 LTS et pnpm avec lockfile. Un dépôt, une application, un worker du même code ; déploiement Node portable par Docker. Better Auth/Resend restent prévus pour les lots concernés.
+Routes auth → Better Auth / Prisma avec compte tony_auth. Routes organisations → validation Zod / session serveur → service → transaction tony_app / RLS. PostgreSQL vérifie le contexte depuis les sessions et memberships ; aucun GUC client ne donne de droit. Consultation plateforme auditée avant la transaction de lecture. Les comptes migration, identité et tenant sont séparés ; le migrateur n’est pas injecté dans l’application.
 
-Flux futur : UI → action/API validée → service domaine autorisé → repository tenanté → transaction PostgreSQL/RLS. Providers externes accessibles seulement côté serveur. Aucun domaine métier au Lot 0. Le schéma ne contient qu’une sonde technique sans donnée personnelle.
+src/app : routes/rendu ; src/modules/auth et organizations : domaines Lot 1 ; src/server : infrastructure, config et sécurité ; src/shared : i18n/tokens ; src/db : client généré ignoré. prisma et infra portent migrations et bootstrap explicites.
 
-## Structure
-- src/app : routes et rendu.
-- src/modules : domaines à ajouter progressivement.
-- src/server : configuration, readiness et point d’entrée worker.
-- src/providers : contrats/adaptateurs créés avec leurs premiers workflows.
-- src/shared : i18n, validation et design tokens.
-- src/db : client Prisma généré, ignoré par Git.
-- prisma : schéma et migrations ; infra : initialisation PostgreSQL locale.
+ADR 0001–0005 conservent les décisions du Lot 0. ADR 0006 décrit les capacités transactionnelles, la séparation identité/tenant et l’audit administrateur résistant au rollback. Resend sera requis avant usage client ; l’outbox locale bloque les URL non loopback. Aucune donnée réelle, aucun provider payant, aucun scaffolding Lot 2.
 
-## Décisions structurantes
-ADR 0001 : monolithe et périmètre ; 0002 : rôles DB séparés et RLS future ; 0003 : i18n et design tokens ; 0004 : runtime et reproductibilité.
-
-## Risques
-Pilotage absent : aucune convention supposée déjà vérifiée. Versions majeures récentes : validation par installation/build et lockfile. Isolation : aucun endpoint métier avant Lot 1 et ses tests RLS. Worker Lot 0 : processus de fond sans queue ni traitement métier. Docker/production : nécessitent vérification sur machine équipée. Auth, rate limiting, rétention, audit, restauration et observabilité complète restent des exigences futures, pas des garanties du Lot 0.
+Restent avant production : email réel, proxies fiables, sauvegarde/restauration, nettoyage des contextes abandonnés, observabilité opérationnelle et revue sécurité. Les validations Docker/Chromium/PostgreSQL s’exécutent sur Linux CI compte tenu des restrictions Mac documentées. Vercel exclu du périmètre.
