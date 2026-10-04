@@ -1,6 +1,6 @@
 # Lot 3 — cadrage documentaire du CRM minimal
 
-Date : 4 octobre 2026. **Cadrage corrigé validé ; implémentation explicitement autorisée par l’utilisateur.** Lots 0, 1 et 2 validés par l’utilisateur. Ce document n’autorise aucun code, migration ou nouveau test exécutable. Arrêt après sa préparation.
+Date : 4 octobre 2026. **Cadrage corrigé validé ; implémentation explicitement autorisée par l’utilisateur.** Lots 0, 1 et 2 validés par l’utilisateur. Le cadrage ci-dessous est conservé comme contrat validé ; son statut initial documentaire est historique. Implémentation autorisée explicitement après revue humaine de la version corrigée ; arrêt après le Lot 3, sans Lot 4. Résultats : LOT_3_REVIEW.md.
 
 ## Sources et état initial
 
@@ -129,6 +129,6 @@ Validation du cadrage demandée sur : droits OWNER/MEMBER conservateurs, quatre 
 6. Revue manuelle clavier/formulaires/confirmations, desktop/mobile/320px et captures synthétiques ; examiner requêtes/index et pagination, absence N+1. Cibles performance du brief à mesurer, jamais annoncées atteintes sans mesures.
 7. Rapport final : fichiers, ADR, migrations, commandes réellement exécutées, résultats CI/tests SQL/APIs/E2E, preuves A/B, audit, accessibilité/visuel, sécurité/confidentialité/performance/i18n, risques/divergences et rollback. Arrêt pour revue humaine ; aucun Lot 4 sans autorisation.
 
-## Contrôle de cette préparation
+## Contrôle historique de la préparation documentaire
 
-Uniquement ce plan documentaire et mise à jour du statut de validation Lot 2 dans AGENTS.md/ADR 0007. Brief et ADR relus, inspection du modèle/migrations/service/session/RLS existants ; aucune modification source, configuration CI, dépendance, schéma, migration, provider ou test. Les gates applicatives ne sont pas relancées pour ce cadrage documentaire, et aucun résultat Lot 3 n’est revendiqué. **Attente de validation humaine explicite avant implémentation.**
+Uniquement ce plan documentaire et mise à jour du statut de validation Lot 2 dans AGENTS.md/ADR 0007. Brief et ADR relus, inspection du modèle/migrations/service/session/RLS existants ; aucune modification source, configuration CI, dépendance, schéma, migration, provider ou test. Les gates applicatives ne sont pas relancées pour ce cadrage documentaire, et aucun résultat Lot 3 n’est revendiqué. **Ce contrôle décrit la préparation initiale. La validation humaine explicite a ensuite autorisé l’implémentation, selon le statut en tête de document.**
