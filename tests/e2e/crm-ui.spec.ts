@@ -22,3 +22,12 @@ test("CRM UI creation, editing, focus, deletion and 320px",async({page,context},
  await page.setViewportSize({width:320,height:720});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath("today-320.png"),fullPage:true});
  await page.getByRole("button",{name:"Supprimer",exact:true}).click();dialog=page.getByRole("dialog",{name:"Confirmer la suppression — Tâche synthétique",exact:true});await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"Supprimer",exact:true})).toBeFocused();await page.getByRole("button",{name:"Supprimer",exact:true}).click();await dialog.getByRole("button",{name:"Confirmer la suppression",exact:true}).click();await expect(page.getByRole("heading",{name:"Tâche synthétique",exact:true})).toHaveCount(0);
 });
+test("CRM revoked session removes open private form and history data",async({page,context})=> {
+ const user=await actor(context.request,pools.identity),org=await organization(context.request,"Synthetic revocation");
+ const r=await context.request.post(`${base}/api/crm/${org}/contacts`,{headers:{origin:base},data:{name:"PRIVATE_A_CONTACT",phone:"+33798765432",email:null}});expect(r.status()).toBe(201);
+ await page.goto(`/app/${org}/contacts`);await expect(page.getByRole("heading",{name:"PRIVATE_A_CONTACT"})).toBeVisible();await page.getByRole("button",{name:"Modifier",exact:true}).click();
+ await pools.identity.query('DELETE FROM auth_session WHERE "userId"=$1',[user]);
+ await page.getByRole("dialog",{name:"Modifier — PRIVATE_A_CONTACT"}).getByRole("button",{name:"Enregistrer",exact:true}).click();
+ await expect(page.getByTestId("access-required")).toBeVisible();await expect(page.getByText("PRIVATE_A_CONTACT",{exact:true})).toHaveCount(0);await expect(page.getByRole("dialog")).toHaveCount(0);
+ await page.goto("/");await page.goBack();await expect(page.getByTestId("access-required")).toBeVisible();await expect(page.getByText("PRIVATE_A_CONTACT",{exact:true})).toHaveCount(0);
+});

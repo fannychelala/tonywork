@@ -8,6 +8,8 @@ describe("CRM direct runtime SQL boundary",()=> {
   const r=await f.app.query("SELECT relrowsecurity,relforcerowsecurity,relowner=(SELECT oid FROM pg_roles WHERE rolname=current_user) AS owner FROM pg_class WHERE oid=$1::regclass",[table]);
   expect(r.rows).toEqual([{relrowsecurity:true,relforcerowsecurity:true,owner:false}]);
   await expect(f.auth.query(`SELECT * FROM ${table}`)).rejects.toMatchObject({code:"42501"});
+  expect((await f.app.query("SELECT has_table_privilege('tony_auth',$1,'SELECT,INSERT,UPDATE,DELETE') AS rights",[table])).rows).toEqual([{rights:false}]);
+  expect((await f.app.query("SELECT has_function_privilege('tony_app','tony_security.crm_change()','EXECUTE') AS rights")).rows).toEqual([{rights:false}]);
  });
  it.each(tables)("%s no context/GUC does not authorize SELECT or INSERT",async table=> {
   await f.tx(null,f.a,async c=> {await c.query("SELECT set_config('app.organization_id',$1,true)",[f.a]);expect((await c.query(`SELECT * FROM ${table}`)).rows).toEqual([]);});
