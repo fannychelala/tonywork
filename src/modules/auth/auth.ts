@@ -32,5 +32,15 @@ export function createAuth(input: unknown) {
   rateLimit: { enabled: true, storage: "database", window: 60, max: 100, customRules: { "/sign-in/email": { window: 60, max: 20 }, "/request-password-reset": { window: 60, max: 5 } } },
   plugins: [twoFactor({ issuer: "Tony" })],
  });
+ const handle = auth.handler.bind(auth);
+ auth.handler = async (request: Request) => {
+  if (request.method !== "GET" && request.method !== "HEAD" && request.headers.get("origin") !== env.BETTER_AUTH_URL) {
+   return Response.json({ error: "Forbidden origin" }, { status: 403 });
+  }
+  const response = await handle(request);
+  const retryAfter = response.headers.get("X-Retry-After");
+  if (response.status === 429 && retryAfter) response.headers.set("Retry-After", retryAfter);
+  return response;
+ };
  return { auth, db };
 }

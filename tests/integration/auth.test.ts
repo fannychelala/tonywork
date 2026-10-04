@@ -43,6 +43,34 @@ it("password reset revokes sessions and the old password", async () => {
  expect((await request("/sign-in/email", { email, password: "Changed-password-42!" })).status).toBe(200);
 });
 
+it("MFA requires a successful second factor before granting a login session", async () => {
+ const email = `${randomUUID()}@example.invalid`; const password = "MFA-synthetic-password-42!";
+ await request("/sign-up/email", { name: "Synthetic MFA", email, password });
+ const mail = await db.authMail.findFirstOrThrow({ where: { recipient: email, kind: "verification" } }); await auth.handler(new Request(mail.url));
+ const login = await request("/sign-in/email", { email, password }); expect(login.status).toBe(200);
+ let cookie = login.headers.getSetCookie().map(c => c.split(";")[0]).join("; ");
+ const enable = await request("/two-factor/enable", { password }, cookie); expect(enable.status).toBe(200);
+ const data = await enable.json(); const secret = new URL(data.totpURI).searchParams.get("secret")!;
+ const { createHmac } = await import("node:crypto");
+ function code() {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const bits = [...secret.toUpperCase().replace(/=+$/, "")].map(c => alphabet.indexOf(c).toString(2).padStart(5,"0")).join("");
+  const bytes = Buffer.from(bits.match(/.{8}/g)!.map(b => parseInt(b,2)));
+  const counter = Buffer.alloc(8); counter.writeBigUInt64BE(BigInt(Math.floor(Date.now()/30_000)));
+  const digest = createHmac("sha1",bytes).update(counter).digest(); const offset = digest[digest.length-1]! & 15;
+  return ((digest.readUInt32BE(offset)&0x7fffffff)%1_000_000).toString().padStart(6,"0");
+ }
+ expect((await request("/two-factor/verify-totp", { code: code() }, cookie)).status).toBe(200);
+ expect((await db.user.findUniqueOrThrow({ where: { email } })).twoFactorEnabled).toBe(true);
+ await request("/sign-out", {}, cookie);
+ const challenge = await request("/sign-in/email", { email, password }); expect(challenge.status).toBe(200); expect((await challenge.json()).twoFactorRedirect).toBe(true);
+ cookie = challenge.headers.getSetCookie().map(c => c.split(";")[0]).join("; ");
+ expect(await (await request("/get-session", undefined, cookie)).json()).toBeNull();
+ expect((await request("/two-factor/verify-totp", { code: "invalid" }, cookie)).status).toBeGreaterThanOrEqual(400);
+ const verified = await request("/two-factor/verify-totp", { code: code() }, cookie); expect(verified.status).toBe(200);
+ cookie = verified.headers.getSetCookie().map(c => c.split(";")[0]).join("; ");
+ expect((await (await request("/get-session", undefined, cookie)).json()).user.email).toBe(email);
+}, 20_000);
 it("rate limiting cannot be bypassed by forged forwarded IP headers", async () => {
  await db.rateLimit.deleteMany();
  let response: Response | undefined;

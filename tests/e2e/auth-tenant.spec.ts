@@ -11,7 +11,7 @@ async function signupAndLogin(request: APIRequestContext) {
  expect(mail.rows).toHaveLength(1);
  expect((await request.get(mail.rows[0].url)).status()).toBeLessThan(400);
  const login = await request.post("/api/auth/sign-in/email", { headers: { origin: base }, data: { email, password } }); expect(login.status()).toBe(200);
- const session = await request.get("/api/auth/get-session"); expect((await session.json()).user.platformRole).toBe("USER");
+ const session = await request.get("/api/auth/get-session"); const body = await session.json(); expect(body.user.platformRole).toBe("USER"); expect(body.session.token).toBeUndefined();
 }
 test("session authorization and cross-tenant API requests", async ({ playwright, request }) => {
  const other = await playwright.request.newContext({ baseURL: base });
