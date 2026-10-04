@@ -39,3 +39,15 @@ test("Today uses existing organization timezone and half-open civil bounds",asyn
  const other=await context.request.post(`${base}/api/organizations`,{headers,data:{name:"Other timezone",defaultLocale:"en-GB",currency:"USD",timeZone:"America/New_York"}});expect(other.status()).toBe(201);const oid=(await other.json()).id;
  expect((await (await context.request.get(`${base}/api/crm/${oid}/today`)).json()).timeZone).toBe("America/New_York");
 });
+test("CRM bounded pagination/search and measured synthetic round-trip",async({context},info)=> {
+ await actor(context.request,pools.identity);const org=await organization(context.request,"Synthetic pagination");const api=`${base}/api/crm/${org}/contacts`,headers={origin:base};
+ for(let i=0;i<30;i++){const r=await context.request.post(api,{headers,data:{name:`Synthetic page ${String(i).padStart(2,"0")}`,phone:`+3390000${String(i).padStart(4,"0")}`,email:null}});expect(r.status()).toBe(201);}
+ const first=await (await context.request.get(api)).json();expect(first.items).toHaveLength(25);expect(first.nextCursor).not.toBeNull();
+ const second=await (await context.request.get(`${api}?cursor=${first.nextCursor}`)).json();expect(second.items).toHaveLength(5);expect(second.nextCursor).toBeNull();
+ expect(new Set([...first.items,...second.items].map((r:{id:string})=>r.id)).size).toBe(30);
+ const result=await (await context.request.get(`${api}?q=${encodeURIComponent("page 29")}`)).json();expect(result.items).toHaveLength(1);
+ expect((await (await context.request.get(`${api}?q=${encodeURIComponent("%' OR true --")}`)).json()).items).toEqual([]);
+ const times:number[]=[];for(let i=0;i<20;i++){const start=performance.now();const r=await context.request.get(api);expect(r.status()).toBe(200);await r.body();times.push(performance.now()-start);}
+ times.sort((a,b)=>a-b);const measurement={scope:"CI synthetic HTTP round-trip, not production server P95",records:30,samples:20,p50Ms:times[9],p95Ms:times[18],maxMs:times[19]};
+ console.log(JSON.stringify(measurement));await info.attach("crm-performance.json",{body:JSON.stringify(measurement,null,2),contentType:"application/json"});
+});
