@@ -19,6 +19,9 @@ jobs:
     env:
       DATABASE_URL: postgresql://tony_app:local_app_only@localhost:5432/tony
       MIGRATION_DATABASE_URL: postgresql://tony_migrator:local_migrator_only@localhost:5432/tony
+      AUTH_DATABASE_URL: postgresql://tony_auth:local_auth_only@localhost:5432/tony
+      BETTER_AUTH_URL: http://127.0.0.1:3000
+      AUTH_MAIL_MODE: local
       NEXT_TELEMETRY_DISABLED: 1
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +31,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Initialize least-privilege local roles
         run: psql postgresql://local_bootstrap:local_bootstrap_only@localhost:5432/tony -v ON_ERROR_STOP=1 -f infra/postgres/init.sql
+      - name: Generate ephemeral authentication secret
+        run: node -e "require('fs').appendFileSync(process.env.GITHUB_ENV, 'BETTER_AUTH_SECRET=' + require('crypto').randomBytes(32).toString('base64') + '\n')"
       - run: pnpm db:migrate
       - run: pnpm lint
       - run: pnpm typecheck
@@ -47,6 +52,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24 }
       - run: npm install -g pnpm@11.25.0
+      - name: Generate local Docker authentication secret
+        run: node -e "require('fs').writeFileSync('.env', 'BETTER_AUTH_SECRET=' + require('crypto').randomBytes(32).toString('base64') + '\n', {mode:384})"
       - run: pnpm local:up
       - run: docker compose up -d --wait app worker
       - run: curl --fail http://localhost:3000/readiness
