@@ -44,9 +44,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose up --build -d --wait app worker
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm install -g pnpm@11.25.0
+      - run: pnpm local:up
+      - run: docker compose up -d --wait app worker
       - run: curl --fail http://localhost:3000/readiness
+      - name: Verify PostgreSQL volume survives stack restart
+        run: |
+          docker compose exec -T postgres psql -U local_bootstrap -d tony -v ON_ERROR_STOP=1 -c "INSERT INTO system_probe (id) VALUES ('restart-validation');"
+          docker compose down
+          docker compose up -d --wait app worker
+          curl --fail http://localhost:3000/readiness
+          test "$(docker compose exec -T postgres psql -U local_bootstrap -d tony -Atc "SELECT count(*) FROM system_probe WHERE id = 'restart-validation';")" = "1"
+          docker compose exec -T postgres psql -U local_bootstrap -d tony -v ON_ERROR_STOP=1 -c "DELETE FROM system_probe WHERE id = 'restart-validation';"
       - run: docker compose logs
         if: failure()
       - run: docker compose down
         if: always()
+      - name: Verify stack is stopped
+        if: always()
+        run: test -z "$(docker compose ps --status running -q)"
