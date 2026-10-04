@@ -1,7 +1,7 @@
 import {test,expect} from "@playwright/test";
 import {randomUUID} from "node:crypto";
 import {actor,organization,createPools,base} from "./fixtures/shell";
-const pools=createPools();test.afterAll(async()=>{await pools.identity.end();await pools.migration.end();});
+const pools=createPools();test.beforeEach(()=>pools.identity.query("DELETE FROM auth_rate_limit"));test.afterAll(async()=>{await pools.identity.end();await pools.migration.end();});
 test("CRM API A/B denies cross-tenant and strict mutations",async({playwright})=> {
  const a=await playwright.request.newContext(),b=await playwright.request.newContext();
  await actor(a,pools.identity);await actor(b,pools.identity);

@@ -1,0 +1,30 @@
+import {randomUUID} from "node:crypto";
+import {test,expect} from "@playwright/test";
+import {actor,organization,createPools,base} from "./fixtures/shell";
+const pools=createPools();test.beforeEach(()=>pools.identity.query("DELETE FROM auth_rate_limit"));test.afterAll(async()=>{await pools.identity.end();await pools.migration.end();});
+test("CRM API CRUD, version, replay and tenant permissions",async({context,playwright})=>{
+ await actor(context.request,pools.identity);const org=await organization(context.request,"Synthetic CRM flow");
+ const api=`${base}/api/crm/${org}`,headers={origin:base};
+ const post=async(kind:string,data:object)=>{const r=await context.request.post(`${api}/${kind}`,{headers,data});expect(r.status()).toBe(201);return r.json();};
+ const c=await post("contacts",{name:"Synthetic contact",phone:"+33612345678",email:null});
+ expect((await context.request.post(`${api}/contacts`,{headers,data:{name:"Duplicate",phone:c.phone,email:null}})).status()).toBe(409);
+ const service=await post("services",{name:"Synthetic service",currency:"EUR",description:null,averageAmountMinor:120000,minAmountMinor:90000,maxAmountMinor:170000,durationMinutes:240,active:true});
+ const input={title:"Synthetic opportunity",contactId:c.id,serviceTemplateId:service.id,description:null};
+ const opp=await post("opportunities",input),replay=await post("opportunities",input);expect(replay.id).not.toBe(opp.id);
+ const task=await post("tasks",{title:"Synthetic task",opportunityId:opp.id,dueAt:null});
+ const changes=await Promise.all([context.request.patch(`${api}/tasks/${task.id}`,{headers,data:{version:1,status:"DONE"}}),context.request.patch(`${api}/tasks/${task.id}`,{headers,data:{version:1,status:"DONE"}})]);expect(changes.map(r=>r.status()).sort()).toEqual([200,409]);
+ const done=await (await context.request.get(`${api}/tasks/${task.id}`)).json();expect(done.completedAt).not.toBeNull();
+ expect((await context.request.patch(`${api}/tasks/${task.id}`,{headers,data:{version:2,status:"OPEN"}})).status()).toBe(200);
+ expect((await context.request.delete(`${api}/contacts/${c.id}`,{headers,data:{version:1}})).status()).toBe(409);
+ expect((await context.request.patch(`${api}/opportunities/${opp.id}`,{headers,data:{version:1,status:"ARCHIVED"}})).status()).toBe(200);
+ expect((await context.request.patch(`${api}/opportunities/${opp.id}`,{headers,data:{version:2,status:"WON"}})).status()).toBe(400);
+ expect((await context.request.patch(`${api}/opportunities/${opp.id}`,{headers,data:{version:2,status:"NEW"}})).status()).toBe(200);
+ for(const kind of ["contacts","services","opportunities","tasks","today"]){const r=await context.request.get(`${api}/${kind}`);expect(r.status()).toBe(200);expect(r.headers()["cache-control"]).toContain("no-store");expect(await r.text()).not.toContain("session");}
+ const member=await playwright.request.newContext();const uid=await actor(member,pools.identity);
+ await pools.migration.query('INSERT INTO membership (id,"organizationId","userId",role) VALUES ($1,$2,$3,\'MEMBER\')',[randomUUID(),org,uid]);
+ expect((await member.get(`${api}/contacts`)).status()).toBe(200);
+ expect((await member.post(`${api}/contacts`,{headers,data:{name:"Denied",phone:"+33699999999",email:null}})).status()).toBe(403);
+ expect((await member.patch(`${api}/contacts/${c.id}`,{headers,data:{version:1,name:"Denied"}})).status()).toBe(403);
+ expect((await member.delete(`${api}/contacts/${c.id}`,{headers,data:{version:1}})).status()).toBe(403);
+ await member.dispose();
+});
