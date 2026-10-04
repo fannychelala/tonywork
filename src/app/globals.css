@@ -107,3 +107,6 @@ html[data-shell-private=hidden] .shell-private { display: none; }
 .crm-check input { width: 24px; height: 24px; }
 .crm-panel select:focus-visible,.crm-form select:focus-visible,.crm-list summary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 4px; }
 @media (max-width: 480px) { .crm-panel { padding: 16px; } .crm-list .state-actions { flex-wrap: wrap; } }
+.crm-panel,.crm-form { min-width: 0; overflow-wrap: anywhere; }
+.crm-form .ui-field { min-width: 0; }
+.dialog-heading h2 { min-width: 0; overflow-wrap: anywhere; }

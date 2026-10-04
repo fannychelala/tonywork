@@ -44,3 +44,11 @@ test("CRM delayed authorized response cannot restore DOM after pagehide",async({
  release();await done;await expect(page.getByText("DELAYED_PRIVATE_CONTACT",{exact:true})).toHaveCount(0);
  await page.unroute(`**/api/crm/${org}/contacts?**`);await page.reload();await expect(page.getByRole("heading",{name:"DELAYED_PRIVATE_CONTACT",exact:true})).toBeVisible();
 });
+test("CRM maximal unbroken titles fit 320px",async({page,context})=> {
+ await actor(context.request,pools.identity);const org=await organization(context.request,"Synthetic long text"),headers={origin:base};
+ const c=await context.request.post(`${base}/api/crm/${org}/contacts`,{headers,data:{name:"C".repeat(120),phone:"+33776543210",email:null}});expect(c.status()).toBe(201);
+ const o=await context.request.post(`${base}/api/crm/${org}/opportunities`,{headers,data:{title:"O".repeat(160),description:null,contactId:(await c.json()).id,serviceTemplateId:null}});expect(o.status()).toBe(201);
+ expect((await context.request.post(`${base}/api/crm/${org}/tasks`,{headers,data:{title:"T".repeat(160),opportunityId:(await o.json()).id,dueAt:new Date().toISOString()}})).status()).toBe(201);
+ await page.setViewportSize({width:320,height:720});
+ for(const screen of ["today","contacts","opportunities"]){await page.goto(`/app/${org}/${screen}`);await expect(page.locator(".crm-list > li")).toHaveCount(1);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.getByRole("button",{name:"Modifier",exact:true}).click();await expect(page.getByRole("dialog")).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.keyboard.press("Escape");}
+});
