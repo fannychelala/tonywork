@@ -1,6 +1,6 @@
 # ADR 0006 — Sessions et frontière PostgreSQL
 
-Date : 2026-10-04. Statut : implémenté pour revue Lot 1.
+Date : 2026-10-04. Statut : accepté après validation humaine du Lot 1.
 
 ## Problème
 Un rôle SQL non propriétaire peut falsifier un GUC `app.organization_id`. Une politique fondée uniquement sur ce GUC ne protège donc pas contre l’accès SQL direct avec le rôle applicatif. Un audit administrateur placé uniquement dans la transaction de lecture peut aussi être effacé par ROLLBACK.
@@ -31,3 +31,6 @@ Aucun header IP fourni par le client n’est réputé fiable. En local, Better A
 
 ## Changements d’assurance des sessions
 Un trigger PostgreSQL révoque toutes les sessions existantes lors d’un changement du rôle plateforme, de l’état MFA ou d’une dévérification email. Une session créée avant activation MFA ne peut donc hériter d’une assurance supérieure. Better Auth recrée la session courante après la preuve TOTP ; ce comportement et la révocation d’une seconde session antérieure sont testés.
+
+## Dette sécurité acceptée et garde-fou des lots suivants
+La réutilisation d’un grant pendant sa minute de validité par un détenteur simultané de tony_app et d’une session admin valide demeure explicitement une dette sécurité, acceptée pour le Lot 1. Cette acceptation n’autorise aucune extension de durée, de portée ou de droits. Aucun lot suivant ne doit assouplir la validation session/MFA, la justification obligatoire, la liaison session/tenant, la lecture seule ou l’audit commité avant lecture. Toute réduction future de cette dette nécessitera une décision et des tests dédiés.
