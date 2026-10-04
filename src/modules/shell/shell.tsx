@@ -14,7 +14,11 @@ async function loadOrganization(id: string, signal: AbortSignal): Promise<Access
  try {
   const response = await fetch(`/api/shell/${encodeURIComponent(id)}`, { cache: "no-store", signal });
   if (signal.aborted) return null;
-  if (!response.ok) return { status: response.status === 401 ? "required" : response.status === 404 ? "denied" : "error" };
+  if (!response.ok) {
+   // Drain the generic error body before navigation; do not leave a fetch stream pending.
+   await response.text();
+   return { status: response.status === 401 ? "required" : response.status === 404 ? "denied" : "error" };
+  }
   const data = dto.parse(await response.json());
   if (data.id !== id) return { status: "error" };
   return { status: "ready", name: data.name };
