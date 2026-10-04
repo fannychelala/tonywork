@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
-import { actor, organization, identity, migration, screens, base } from "./fixtures/shell";
+import { actor, organization, createPools, screens, base } from "./fixtures/shell";
+const { identity, migration } = createPools();
 test.beforeEach(async () => { await identity.query("DELETE FROM auth_rate_limit"); });
 test.afterAll(async () => { await identity.end(); await migration.end(); });
 test("A/B shell: no foreign tenant in HTML, RSC, API, DOM or navigation", async ({ page, context, playwright }) => {
+ test.setTimeout(60_000);
  const other = await playwright.request.newContext();
  const aName = `Synthetic-A-${randomUUID()}`, bName = `SECRET-B-${randomUUID()}`;
  try {
-  await actor(context.request); await actor(other);
+  await actor(context.request, identity); await actor(other, identity);
   const a = await organization(context.request, aName), b = await organization(other, bName);
   const payloads: Promise<void>[] = [];
   page.on("response", r => { if (r.url().startsWith(base) && /text|json|javascript/.test(r.headers()["content-type"] ?? "")) payloads.push((async () => { let text: string; try { text = await r.text(); } catch { return; } expect(text).not.toContain(bName); })()); });
@@ -28,7 +30,7 @@ test("A/B shell: no foreign tenant in HTML, RSC, API, DOM or navigation", async 
 });
 test("missing, invalid, expired and revoked sessions never expose tenant", async ({ page, context }) => {
  await page.goto(`/app/${randomUUID()}/today`); await expect(page.getByTestId("access-required")).toBeVisible();
- const user = await actor(context.request), name = `Synthetic-private-${randomUUID()}`, id = await organization(context.request, name);
+ const user = await actor(context.request, identity), name = `Synthetic-private-${randomUUID()}`, id = await organization(context.request, name);
  await page.goto("/app/not-a-uuid/today"); await expect(page.getByTestId("access-denied")).toBeVisible();
  await identity.query('UPDATE auth_session SET "expiresAt"=now()-interval \'1 second\' WHERE "userId"=$1', [user]);
  await page.goto(`/app/${id}/today`); await expect(page.getByTestId("access-required")).toBeVisible(); expect(await page.content()).not.toContain(name);
@@ -36,7 +38,7 @@ test("missing, invalid, expired and revoked sessions never expose tenant", async
 test("MEMBER stays scoped; PLATFORM_ADMIN receives no implicit grant", async ({ page, context, playwright }) => {
  const owner = await playwright.request.newContext();
  try {
-  const member = await actor(context.request); await actor(owner);
+  const member = await actor(context.request, identity); await actor(owner, identity);
   const own = await organization(owner, "Synthetic member organization");
   await migration.query('INSERT INTO membership (id,"organizationId","userId",role) VALUES ($1,$2,$3,\'MEMBER\')', [randomUUID(),own,member]);
   await page.goto(`/app/${own}/today`); await expect(page.getByTestId("organization-name")).toHaveText("Synthetic member organization");

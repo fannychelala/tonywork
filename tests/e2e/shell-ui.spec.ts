@@ -1,9 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { actor, organization, identity, migration, screens } from "./fixtures/shell";
+import { actor, organization, createPools, screens } from "./fixtures/shell";
+const { identity, migration } = createPools();
 test.beforeEach(async () => { await identity.query("DELETE FROM auth_rate_limit"); });
 test.afterAll(async () => { await identity.end(); await migration.end(); });
 test("shell keyboard, modal, drawer, touch targets, forms and visual states", async ({ page, context }, info) => {
- await actor(context.request); const id = await organization(context.request, "Atelier de démonstration");
+ await actor(context.request, identity); const id = await organization(context.request, "Atelier de démonstration");
  for (const screen of screens) {
   await page.goto(`/app/${id}/${screen}`); await expect(page.getByTestId("organization-name")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

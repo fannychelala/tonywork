@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { z } from "zod";
 import { shellDictionaries } from "@/shared/i18n/shell";
-import { defaultLocale } from "@/shared/i18n/messages";
+import { dictionaries, defaultLocale } from "@/shared/i18n/messages";
 import { Button, Card, EmptyState, Skeleton } from "@/shared/ui/primitives";
 import { Dialog } from "@/shared/ui/dialog";
 import { screens, type Screen } from "./screens";
@@ -22,7 +22,7 @@ async function loadOrganization(id: string, signal: AbortSignal): Promise<Access
 }
 const icons: Record<Screen, string> = { today: "◷", opportunities: "↗", contacts: "◎", services: "▤", settings: "⚙" };
 export function Shell({ organizationId, screen }: { organizationId: string; screen: Screen }) {
- const t = shellDictionaries[defaultLocale], [access, setAccess] = useState<Access>({ status: "loading" });
+ const t = shellDictionaries[defaultLocale], brand = dictionaries[defaultLocale], [access, setAccess] = useState<Access>({ status: "loading" });
  const controller = useRef<AbortController | null>(null);
  const conceal = useCallback(() => { document.documentElement.dataset.shellPrivate = "hidden"; controller.current?.abort(); setAccess({ status: "loading" }); }, []);
  const verify = useCallback(() => {
@@ -52,7 +52,7 @@ export function Shell({ organizationId, screen }: { organizationId: string; scre
  }
  const nav = <nav aria-label={t.navigation}>{screens.map(item => <a key={item} href={`/app/${encodeURIComponent(organizationId)}/${item}`} aria-current={item === screen ? "page" : undefined}><span aria-hidden="true">{icons[item]}</span>{t[item]}</a>)}</nav>;
  return <div className="app-shell">
- <aside className="sidebar"><Link href="/" prefetch={false} className="wordmark" aria-label="Tony">tony<span aria-hidden="true">.</span></Link><p className="workspace-label">{t.workspace}</p>{nav}<div className="sidebar-note">{t.development}</div></aside>
+ <aside className="sidebar"><Link href="/" prefetch={false} className="wordmark" aria-label={brand.name}>{brand.name.toLowerCase()}<span aria-hidden="true">.</span></Link><p className="workspace-label">{t.workspace}</p>{nav}<div className="sidebar-note">{t.development}</div></aside>
  <div className="shell-body"><header className="shell-header"><div className="mobile-menu"><Dialog label={t.menu} title={t.navigation} close={t.close} drawer>{nav}</Dialog></div><span className="shell-breadcrumb">{t.workspace}<span aria-hidden="true"> / </span><strong>{t[screen]}</strong></span><span className="development-dot">{t.development}</span></header>
  <main id="main" tabIndex={-1} className="shell-main">
  <div className="page-heading"><p className="eyebrow">{t.workspace}</p><h1>{t[screen]}</h1><p>{t[`${screen}Intro`]}</p></div>

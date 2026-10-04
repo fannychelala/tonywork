@@ -2,7 +2,7 @@
 
 Date : 2026-10-04. Statut : implémenté pour revue Lot 2.
 
-Le Lot 2 reste une fondation UI, sans nouveau domaine, table, migration ni dépendance. Il réutilise les tokens CSS, dictionnaires fr-FR/en-GB et primitives HTML natives (dialog avec showModal) pour le focus, Escape et l’inertie du fond.
+Le Lot 2 reste une fondation UI, sans nouveau domaine, table, migration ni dépendance. Il réutilise les tokens CSS, dictionnaires fr-FR/en-GB et primitives HTML natives (dialog avec showModal) pour Escape et l’inertie du fond, avec boucle Tab/Shift+Tab explicite pour conserver le focus dans le dialogue même avec un seul contrôle.
 
 Le document HTML et les payloads RSC du shell contiennent uniquement présentation et paramètres de route non réputés autorisés. Une API dédiée lit la session Better Auth côté serveur, refuse PLATFORM_ADMIN dans ce shell ordinaire, valide l’UUID et passe par readOrganizationIdentity/withTenant/RLS. Seuls id/name sortent vers le navigateur autorisé. Pas d’adhésions, email, cookie, token ou audit dans le DTO. Aucune lecture tenant sous tony_auth.
 
