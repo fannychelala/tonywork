@@ -1,6 +1,6 @@
 # ADR 0008 — CRM minimal et frontière SQL
 
-Date : 2026-10-04. Statut : accepté par validation explicite du cadrage Lot 3, implémenté pour revue humaine du Lot 3.
+Date : 2026-10-04. Statut : accepté après validation humaine officielle du Lot 3.
 
 ## Décision
 Quatre tables CRM uniquement : Contact, Opportunity, ServiceTemplate, Task. PK et FK composites organizationId/id, sans unicité globale id. Téléphone E.164 unique dans le tenant seulement. UUID/tenant immuables, suppression physique restrictive, Opportunity ARCHIVED comme seul archivage. Concurrence optimiste par version, sans idempotence réseau persistante.

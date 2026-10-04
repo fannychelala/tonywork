@@ -1,7 +1,7 @@
 # Constitution Codex — Tony
 
 ## Vision et périmètre
-Transformer les demandes entrantes en opportunités, aider à agir et mesurer la valeur convertie. Lire docs/BRIEF.md avant toute évolution importante. Lot 0 officiellement validé le 4 octobre 2026. Lot 1 officiellement validé par revue humaine. Lot 2 officiellement validé par revue humaine, design system et shell applicatif (brief §126), sans nouvelle table/migration/dépendance. Lot 3 : cadrage docs/LOT_3_PLAN.md validé et implémentation explicitement autorisée ; CRM minimal, quatre tables seulement. Arrêt après Lot 3 ; aucun Lot 4 sans autorisation explicite.
+Transformer les demandes entrantes en opportunités, aider à agir et mesurer la valeur convertie. Lire docs/BRIEF.md avant toute évolution importante. Lot 0 officiellement validé le 4 octobre 2026. Lot 1 officiellement validé par revue humaine. Lot 2 officiellement validé par revue humaine, design system et shell applicatif (brief §126), sans nouvelle table/migration/dépendance. Lot 3 officiellement validé humainement ; CRM minimal, quatre tables seulement. Lot 4 : cadrage docs/LOT_4_PLAN.md validé et implémentation explicitement autorisée ; moteur pur simulé, aucune DB/API/UI/provider/dépendance ni connexion CRM. Arrêt après Lot 4 ; aucun Lot 5, fusion ou production sans nouvelle validation explicite.
 
 ## Méthode
 Inspecter l’existant, lire ce fichier, identifier modules et risques, exposer le plan, implémenter, tester, vérifier les régressions, documenter. Pour un bug significatif : reproduire, trouver la cause, corriger, ajouter un test de régression et couvrir les cas proches.
