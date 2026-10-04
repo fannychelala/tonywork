@@ -6,3 +6,4 @@ DO $$ BEGIN
 END $$;
 GRANT CONNECT ON DATABASE tony TO tony_auth;
 GRANT USAGE ON SCHEMA public TO tony_auth;
+GRANT CREATE ON DATABASE tony TO tony_migrator;

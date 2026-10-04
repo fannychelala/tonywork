@@ -10,3 +10,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE tony_migrator IN SCHEMA public GRANT USAGE, SE
 CREATE ROLE tony_auth LOGIN PASSWORD 'local_auth_only' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
 GRANT CONNECT ON DATABASE tony TO tony_auth;
 GRANT USAGE ON SCHEMA public TO tony_auth;
+-- Schema creation belongs only to the offline migration principal.
+GRANT CREATE ON DATABASE tony TO tony_migrator;
