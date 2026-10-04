@@ -13,3 +13,6 @@ Les liens tenant utilisent une navigation de document entière : aucun prefetch 
 Conséquence : navigation moins instantanée qu’une transition Next client, mais frontière de cache explicite pour ce petit shell. Optimisation future seulement avec tests de session, RSC, prefetch et historique préservés. Pas de chiffres fictifs ni d’action CRM ; le formulaire de présentation annonce explicitement qu’il ne transmet/enregistre rien.
 
 Les captures Playwright desktop/mobile/320px et états loading/error sont conservées comme artifacts CI pour inspection visuelle humaine par l’agent. Elles ne contiennent que fixtures synthétiques.
+
+## Focus de fermeture
+Le déclencheur est focalisé avant showModal ; la fermeture native restitue ce focus. Aucun callback close différé ne refocalise un ancien déclencheur : cette double restauration créait une course lors de l’ouverture immédiate du drawer. Les assertions clavier restent inchangées et le parcours UI est répété trois fois par profil en CI pour vérifier sa stabilité.

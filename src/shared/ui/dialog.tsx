@@ -11,8 +11,8 @@ export function Dialog({ label, title, close, children, drawer = false }: { labe
   if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
  }
- return <><Button ref={trigger} variant="secondary" onClick={() => ref.current?.showModal()} aria-haspopup="dialog">{label}</Button>
- <dialog ref={ref} aria-labelledby={id} className={drawer ? "ui-dialog ui-drawer" : "ui-dialog"} onKeyDown={containFocus} onClose={() => trigger.current?.focus()}>
+ return <><Button ref={trigger} variant="secondary" onClick={() => { trigger.current?.focus(); ref.current?.showModal(); }} aria-haspopup="dialog">{label}</Button>
+ <dialog ref={ref} aria-labelledby={id} className={drawer ? "ui-dialog ui-drawer" : "ui-dialog"} onKeyDown={containFocus}>
   <div className="dialog-heading"><h2 id={id}>{title}</h2><Button variant="quiet" autoFocus onClick={() => ref.current?.close()}>{close}<span aria-hidden="true"> ×</span></Button></div>{children}
  </dialog></>;
 }
