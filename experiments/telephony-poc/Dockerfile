@@ -1,7 +1,7 @@
 FROM node:24-bookworm-slim
 WORKDIR /poc
 RUN npm install -g pnpm@11.25.0
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY experiments/telephony-poc ./experiments/telephony-poc
 USER node

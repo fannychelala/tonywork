@@ -5,6 +5,7 @@ REVOKE ALL ON DATABASE tony_poc FROM PUBLIC;
 GRANT CONNECT ON DATABASE tony_poc TO tony_poc_migrator, tony_poc_runtime;
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE, CREATE ON SCHEMA public TO tony_poc_migrator;
+GRANT USAGE ON SCHEMA public TO tony_poc_runtime;
 SET ROLE tony_poc_migrator;
 BEGIN;
 CREATE TABLE "PocOperation" (
@@ -36,6 +37,5 @@ CREATE TABLE "PocWebhookReceipt" (
 CREATE INDEX poc_cleanup ON "PocOperation"(deadline) WHERE audio_status IN ('PENDING','DELETE_FAILED');
 GRANT SELECT, INSERT, UPDATE ON "PocOperation" TO tony_poc_runtime;
 GRANT SELECT, INSERT ON "PocWebhookReceipt" TO tony_poc_runtime;
-GRANT USAGE ON SCHEMA public TO tony_poc_runtime;
 COMMIT;
 RESET ROLE;
