@@ -51,7 +51,7 @@ export class LivePocRepository {
     const cost = kind === "SMS" ? this.#binding.smsReserveCents : kind === "RECORD" ? this.#binding.recordingReserveCents : this.#binding.callReserveCents;
     if (rows.rows.reduce((sum, row) => sum + row.reserved_cents, 0) + cost > this.#binding.manifest.maximumBudgetCents) throw new Error("BUDGET");
     const now = new Date(this.now());
-    await client.query('INSERT INTO "PocOperation"(id,account,campaign,kind,state,origin,resource,parent_resource,action_slot,reserved_cents,audio_status,deadline,stop_deadline,created_at) VALUES($1,$2,$3,$4,\'UNKNOWN\',$5,$6,$7,$8,$9,$10,$11,$12,$13)', [id, this.account, campaign, kind, origin, resource, parent, slot, cost, kind === "RECORD" ? "PENDING" : null, kind === "RECORD" ? new Date(this.now() + 900000) : null, kind === "RECORD" ? new Date(this.now() + 10000) : null, now]);
+    await client.query('INSERT INTO "PocOperation"(id,account,campaign,kind,state,origin,resource,parent_resource,action_slot,reserved_cents,audio_status,deadline,stop_deadline,created_at) VALUES($1,$2,$3,$4,\'UNKNOWN\',$5,$6,$7,$8,$9,$10,$11,$12,$13)', [id, this.account, campaign, kind, origin, resource, parent, slot, cost, kind === "RECORD" ? "PENDING" : null, kind === "RECORD" ? new Date(this.now() + 900000) : null, kind === "RECORD" ? new Date(this.now() + this.#binding.manifest.recordingSeconds * 1000) : null, now]);
   }
   async execute(input: unknown, provider: LiveTwilioProvider) {
     const action = actionSchema.parse(input), target = this.#binding.testers.find(t => t.slot === action.slot);
@@ -86,7 +86,7 @@ export class LivePocRepository {
         row = await this.row(client, event.resource);
         if (!event.inboundSms) {
           const count = await client.query<{ count: string }>('SELECT count(*) FROM "PocOperation" WHERE account=$1 AND campaign=$2 AND origin=\'INBOUND\' AND kind=\'CALL\'', [this.account, campaign]);
-          if (Number(count.rows[0]?.count) <= 3) {
+          if (Number(count.rows[0]?.count) <= 3 && this.#binding.manifest.callSeconds > 10) {
             const other = this.#binding.testers.find(t => t.slot !== event.caller); if (!other) throw new Error("FORBIDDEN");
             await this.reserve(client, "CALL", "DIAL", other.slot, randomUUID(), null, event.resource);
           }
@@ -114,7 +114,7 @@ export class LivePocRepository {
         await this.open(client);
         const dial = await client.query<Row>('SELECT * FROM "PocOperation" WHERE account=$1 AND campaign=$2 AND parent_resource=$3 AND origin=\'DIAL\'', [this.account, campaign, event.resource]);
         const target = this.#binding.testers.find(t => t.slot === dial.rows[0]?.action_slot);
-        if (target) return `<Response><Dial timeout="5" timeLimit="45" action="${this.#binding.manifest.publicOrigin}/poc/webhooks/twilio/dial-result" method="POST"><Number statusCallback="${this.#binding.manifest.publicOrigin}/poc/webhooks/twilio/call-status" statusCallbackMethod="POST" statusCallbackEvent="completed">${target.phone}</Number></Dial><Hangup/></Response>`;
+        if (target) return `<Response><Dial timeout="5" timeLimit="${Math.min(45, this.#binding.manifest.callSeconds - 10)}" action="${this.#binding.manifest.publicOrigin}/poc/webhooks/twilio/dial-result" method="POST"><Number statusCallback="${this.#binding.manifest.publicOrigin}/poc/webhooks/twilio/call-status" statusCallbackMethod="POST" statusCallbackEvent="completed">${target.phone}</Number></Dial><Hangup/></Response>`;
       }
       return "<Response><Hangup/></Response>";
     });

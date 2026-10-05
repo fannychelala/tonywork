@@ -31,7 +31,7 @@ export class LiveTwilioProvider implements TelephonyProvider<LiveEvent> {
   makeOutboundCall() {
     const target = this.#binding.testers.find(t => t.slot === this.slot); if (!target) throw new Error("FORBIDDEN");
     // Provider-side ten-second call limit bounds any later REST recording even after process death.
-    return this.create("Calls.json", "CA", { From: this.#binding.number, To: target.phone, TimeLimit: "10", Record: "false", Twiml: "<Response><Say>Test Tony. Aucun enregistrement sans accord distinct.</Say><Pause length=\"10\"/><Hangup/></Response>", StatusCallback: this.callback("call-status"), StatusCallbackMethod: "POST", StatusCallbackEvent: "completed" });
+    return this.create("Calls.json", "CA", { From: this.#binding.number, To: target.phone, TimeLimit: String(Math.min(10, this.#binding.manifest.callSeconds, this.#binding.manifest.recordingSeconds)), Record: "false", Twiml: "<Response><Say>Test Tony. Aucun enregistrement sans accord distinct.</Say><Pause length=\"10\"/><Hangup/></Response>", StatusCallback: this.callback("call-status"), StatusCallbackMethod: "POST", StatusCallbackEvent: "completed" });
   }
   sendSms() {
     const target = this.#binding.testers.find(t => t.slot === this.slot); if (!target) throw new Error("FORBIDDEN");

@@ -36,6 +36,13 @@ describe("synthetic rehearsal of the LIVE boundary", () => {
     const provider = new LiveTwilioProvider(parseLiveBinding(livePrivateFixture()), async () => { calls++; throw new Error("private-provider-payload"); }, async () => ({ status: 404, authenticated: true }));
     await expect(provider.makeOutboundCall()).rejects.toThrow("UNKNOWN"); expect(calls).toBe(1);
   });
+  it("honors a smaller configured audio/call cap in the provider request", async () => {
+    const fixture = livePrivateFixture();
+    const binding = parseLiveBinding({ ...fixture, manifest: { ...fixture.manifest, recordingSeconds: 3, callSeconds: 5 } });
+    const transport = vi.fn(async (_request: LiveRequest) => { void _request; return { status: 201, body: { sid: "CA" + "6".repeat(32) } }; });
+    await new LiveTwilioProvider(binding, transport, vi.fn()).makeOutboundCall();
+    expect(transport.mock.calls[0]?.[0]?.data?.TimeLimit).toBe("3");
+  });
   it("refuses provider provisioning from the runtime", async () => {
     const transport = vi.fn(), provider = new LiveTwilioProvider(parseLiveBinding(livePrivateFixture()), transport, vi.fn());
     await expect(provider.provisionNumber()).rejects.toThrow("ADMINISTRATIVE_ONLY"); await expect(provider.releaseNumber("PN" + "2".repeat(32))).rejects.toThrow("ADMINISTRATIVE_ONLY"); expect(transport).not.toHaveBeenCalled();

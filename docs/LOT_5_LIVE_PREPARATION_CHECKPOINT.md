@@ -1,6 +1,6 @@
 # Lot 5 — Checkpoint préalable de préparation LIVE_POC
 
-Date : 5 octobre 2026. Statut actuel : **US1 administratif validé humainement ; préparation partielle, évolution du contrôle de frontière à valider**. Gate 1 ouverte. Aucun effet réel autorisé/exécuté. Les sections initiales ci-dessous décrivent le premier arrêt ; leur état historique ne constitue pas l’état actuel de la préparation.
+Date : 5 octobre 2026. Statut actuel : **préparation technique verrouillée implémentée, gates en cours ; prérequis privés non confirmés**. Gate 1 ouverte. Aucun effet réel autorisé/exécuté. Les sections initiales ci-dessous décrivent le premier arrêt ; leur état historique ne constitue pas l’état actuel de la préparation.
 
 ## Autorisation reçue et motif de l’arrêt
 
@@ -95,4 +95,45 @@ SQL POC/Tony, HTTP avec vrai PostgreSQL, E2E/focus, Docker, CI/CodeQL/Dependency
 
 Compte/sous-compte/MFA, inventaire, devis, consentements et acceptations privées restent non confirmés. Aucun compte fournisseur inspecté, aucune donnée réelle collectée, aucun tunnel ni effet exécuté. Pas de fusion, publication ou production.
 
-**Nouvelle décision demandée : autoriser la séparation explicite des contrôles réseau LOCAL_FAKE/LIVE décrite ci-dessus, sans contourner l’ancien scanner ni relâcher la frontière du fake ou l’isolation produit.**
+**Décision résolue : réponse humaine « oui » autorisant les contrôles transitifs LOCAL_FAKE/LIVE séparés, sans relâcher la frontière du fake ou l’isolation produit.**
+
+## État technique courant — préparation sans effet
+
+Les sections précédentes sont l’historique des deux arrêts résolus. Le transport IE1, l’admission signée, la corrélation parent/enfant, les quotas durables, la reprise audio, le serveur à cinq endpoints et l’entrée opérateur locale sont maintenant implémentés. Aucun SDK construit avec des secrets réels, aucun PostgreSQL Tony accessible depuis ce graphe, aucun tunnel ouvert. Le verrou `FINAL_LIVE_AUTHORIZATION_REQUIRED` reste inconditionnel avant secret/SDK/SQL/écoute et avant lancement de tunnel.
+
+### Fichiers et schéma
+
+Tous les ajouts applicatifs restent sous `experiments/telephony-poc/` : `live-binding`, `live-provider`, `live-transport`, `live-webhook`, `http-server`, `live-server`, `live-repository`, `live-main`, `live-cli`, `live-tunnel`, `live-schema`, migration `sql/002-live-preparation.sql` et tests/fixtures associés. `live-config`, contrat `provider` et suites de contrôle sont adaptés. Workflow POC : une seconde base synthétique 5556 reçoit 001 puis 002 ; l’ancienne 5545 conserve 001 et tous les tests LOCAL_FAKE. ADR 0010 et AGENTS actualisés. Aucune table supplémentaire, aucun rôle supplémentaire, aucune dépendance npm, aucun schéma/migration Prisma Tony.
+
+002 est atomique, pour registre POC neuf uniquement : compte/campagne exacts, FK parent dans le même registre, slot T1/T2, coûts réservés immuables, échéance audio, ressource non réaffectable. Runtime conserve uniquement SELECT/INSERT et UPDATE des colonnes de suivi déjà autorisées ; reçus append-only, pas DDL/DELETE/SET ROLE. Aucun rapprochement avec une organisation Tony et aucune prétention de preuve RLS par ce registre.
+
+### Invariants et limites
+
+- Signatures officielles vérifiées sur tous les champs avant projection ; URL canonique figée, jamais issue du proxy. Téléphones seulement en mémoire privée ; aucun corps SMS/audio/log brut.
+- Quotas et budget interne réservés durablement sous verrou avant REST ou TwiML. UNKNOWN conserve son quota et interdit toute recréation automatique. Sans SID, rapprochement manuel fournisseur nécessaire ; audio sans SID conserve une obligation bloquante et admet seulement une corrélation signée pendant son délai.
+- Replay TwiML déterministe avec une seule réservation Dial : aucune promesse d’exactly-once fournisseur ; tout second effet reste un incident Gate 1. Parent completed ne vaut pas réponse de l’enfant.
+- Appels opérateur bornés au minimum de dix secondes, plafond appel et plafond audio configurés ; Dial borné et désactivé si plafond insuffisant. Compatibilité effective de ces limites fournisseur doit être confirmée avant activation.
+- DELETED exige DELETE confirmé, deleted lorsqu’exposé et média irrécupérable avec authentification valide. Après DELETE confirmé, une reprise revérifie sans nouveau DELETE. Métadonnées fournisseur peuvent rester environ 40 jours ; ni effacement physique instantané ni effacement de sauvegardes affirmés. [Documentation Twilio](https://www.twilio.com/docs/voice/api/recording).
+- Arrêt durable des admissions, arrêt des appels connus, nettoyage même si l’arrêt REST échoue ; opérations inconnues exigent Console/opérateur. Fermeture en incident n’efface jamais une obligation audio non résolue.
+
+### Cloudflared et procédure future
+
+Version 2026.9.3 Apache-2.0, [release officielle](https://github.com/cloudflare/cloudflared/releases/tag/2026.9.3). Sur macOS ARM64, SHA256 archive `587c2cfb1c230fe36c7fa7727da78be459dae028cabe8c001291999350f07095` (digest asset GitHub), exécutable extrait `5472c1a01c84bc31b3021056a73b4e5774ddddefc572124ea8fdf6c340639f32` (release notes). Linux AMD64 `77e26d8d900e0b8469f416239d14b5f296525fdf79fee6f511ef55609e3fbac2`. Téléchargement public, vérification des deux empreintes et `--version` réalisés ; **aucun tunnel démarré**. Pas de nouvelle dépendance/package installé dans Tony.
+
+À terme uniquement après ultime accord : opérateur MFA provisionne/routage administratif US1 sans credential US1 runtime ; vérifier Voice et SMS IE1 séparément, permissions restreintes, devis et consentements. Quick Tunnel vers loopback 4316 avec service fermé aux admissions pendant l’attribution d’URL ; figer ensuite l’origine canonique dans le manifeste privé avant callbacks et ouverture. Aucune URL inventée considérée comme réelle. Aucun endpoint administratif public ni fichier secret/log publié ; stockage privé chiffré, transmission locale hors Git/CI/chat. Le chargement privé reste volontairement non branché pendant cette phase. Avant achat, relire devis TTC/change/frais et conditions ; réserve interne seule ne garantit pas la facture 50 EUR.
+
+En fin d’essai ou incident : fermer admissions, arrêter appels connus et traiter UNKNOWN en Console, arrêter/supprimer audio et prouver média absent, conserver les obligations inconclusives, retirer callbacks, arrêter tunnel, libérer numéro et révoquer clés/token conformément au dossier. Toutes ces actions restent interdites maintenant.
+
+### Préparation privée : non confirmée
+
+Compte/sous-compte/titulaire/MFA, inventaire Technical Platform français Voice+SMS, compatibilité IE1 exacte, permissions et limite d’appel du compte, devis TTC exact, consentements T1/T2 appel/SMS et audio séparé, acceptation conditions/rétentions, manifeste privé complet et relecture opérateur restent **non confirmés**. Les fixtures ne remplacent aucune de ces preuves. Aucun secret ni SID réel ni PII collecté. Ne pas activer le LIVE tant que ces preuves et le deuxième feu vert humain manquent. Gate 1 ouverte.
+
+### Rollback
+
+Revenir au commit LOCAL_FAKE validé ne modifie aucune base Tony. 002 n’est pas réversible sur un registre ayant des obligations : garder le registre privé et le chemin de nettoyage jusqu’à résolution, jamais DROP en présence d’un UNKNOWN ou d’audio non supprimé. Ici aucun registre réel ni effet fournisseur n’existe.
+
+### Résultats et commandes
+
+Résultats complets à compléter après terminaison des workflows de cette branche. Gates locales déjà exécutées : `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm test` (57/57), `pnpm audit --prod --audit-level=high` (aucune vulnérabilité connue), `pnpm exec vitest run --config experiments/telephony-poc/tests/unit.config.ts` (178/178 avant dernier cas de borne). `pnpm local:up` a échoué localement : Docker absent. Les preuves réelles PostgreSQL/Chromium/Docker seront issues de CI, sans annoncer une exécution locale inexistante.
+
+Corrections pendant préparation : type exactOptionalPropertyTypes de réponse média ; méthode SDK en minuscules ; AST des bindings omis correctement typé ; empreinte archive distincte de celle de l’exécutable ; respect des plafonds configurés plus petits ; reprise DELETE sans recréation ; fermeture des admissions pendant attente de corrélation audio. Aucun test désactivé ou assertion métier réduite.
