@@ -70,6 +70,15 @@ describe("real POC PostgreSQL",()=>{
    expect((await pool.query('SELECT status FROM "PocWebhookReceipt"')).rows[0].status).toBe(route==="dial-result"?"no-answer":route==="message-status"?"delivered":"completed");expect(fake.effects).toBe(1);
   }finally{await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
  });
+ it("reconciliation reads known SID and persists a versioned result without creation",async()=>{
+  const fake=new FakeTelephonyProvider();const op=id();await repository.execute({id:op,kind:"CALL"},fake);await repository.reconcile(op,fake);
+  expect((await pool.query('SELECT state,status,version FROM "PocOperation"')).rows[0]).toEqual({state:"COMPLETE",status:"completed",version:3});expect(fake.effects).toBe(1);
+ });
+ it("quota is durably visible inside the first effect call",async()=>{
+  const fake=new FakeTelephonyProvider();const op=id();const original=fake.makeOutboundCall.bind(fake);
+  fake.makeOutboundCall=async()=>{expect((await pool.query('SELECT state FROM "PocOperation" WHERE id=$1',[op])).rows[0].state).toBe("UNKNOWN");return original();};
+  await repository.execute({id:op,kind:"CALL"},fake);expect(fake.effects).toBe(1);
+ });
  it("HTTP validates signature, persists before response, and never creates effects",async()=>{
   const fake=new FakeTelephonyProvider();const op=id();await repository.execute({id:op,kind:"CALL"},fake);
   await migrator.query('UPDATE "PocOperation" SET resource=$1 WHERE id=$2',["CA"+"1".repeat(32),op]);

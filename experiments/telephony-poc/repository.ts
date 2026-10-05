@@ -103,9 +103,14 @@ export class PocRepository {
     if (failures) throw new Error("CLEANUP_REQUIRED");
   }
   async reconcile(id: string, provider: TelephonyProvider) {
-    const row = await this.pool.query<{ resource: string | null; state: string }>('SELECT resource,state FROM "PocOperation" WHERE id=$1', [commandSchema.shape.id.parse(id)]);
-    if (!row.rows[0]?.resource) throw new Error("MANUAL_RECONCILIATION_REQUIRED");
-    const result = await this.bounded(provider.getCall(row.rows[0].resource));
+    const row = await this.pool.query<{ resource: string | null; state: string; kind: string; version: number }>('SELECT resource,state,kind,version FROM "PocOperation" WHERE id=$1', [commandSchema.shape.id.parse(id)]);
+    const current = row.rows[0];
+    if (!current?.resource) throw new Error("MANUAL_RECONCILIATION_REQUIRED");
+    if (current.kind !== "CALL") throw new Error("UNSUPPORTED_RECONCILIATION");
+    const result = await this.bounded(provider.getCall(current.resource));
+    if (result.resource !== current.resource) throw new Error("FORBIDDEN");
+    const updated = await this.pool.query('UPDATE "PocOperation" SET status=$1,state=$2,version=version+1 WHERE id=$3 AND version=$4', [result.status, terminal.has(result.status) ? "COMPLETE" : current.state, id, current.version]);
+    if (!updated.rowCount) throw new Error("CONFLICT");
     return { status: result.status };
   }
 }
