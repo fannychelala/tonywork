@@ -6,6 +6,9 @@ import { PocRepository } from "../repository";
 import { FakeTelephonyProvider } from "../provider";
 import { createPocServer } from "../server";
 import { SYNTHETIC_CALLBACK, SYNTHETIC_SIGNATURE } from "./fixtures";
+import twilio from "twilio";
+import { BASE_URL, FAKE_SECRET } from "../config";
+import { routes } from "../webhook";
 import type { AddressInfo } from "node:net";
 const url=process.env.POC_TEST_DATABASE_URL;
 // No silent skip: SQL tests require a real isolated PostgreSQL instance.
@@ -34,7 +37,7 @@ describe("real POC PostgreSQL",()=>{
   {confirmed:true,providerDeleted:true,mediaUnavailable:false,authenticated:true},
   {confirmed:true,providerDeleted:true,mediaUnavailable:true,authenticated:false},
  ])("blocks inconclusive deletion proof %j",async proof=>{const fake=new FakeTelephonyProvider();fake.deletion=proof;await repository.execute({id:id(),kind:"RECORD"},fake);await expect(repository.cleanup(fake)).rejects.toThrow("CLEANUP_REQUIRED");expect((await pool.query('SELECT audio_status FROM "PocOperation"')).rows[0].audio_status).toBe("DELETE_FAILED");await expect(repository.execute({id:id(),kind:"RECORD"},fake)).rejects.toThrow("CLEANUP_REQUIRED");});
- it.each([true,null])("deletes media while metadata remains; status exposed=%s",async providerDeleted=>{const fake=new FakeTelephonyProvider();fake.deletion.providerDeleted=providerDeleted;await repository.execute({id:id(),kind:"RECORD"},fake);await new PocRepository(pool).cleanup(fake);expect((await pool.query('SELECT audio_status FROM "PocOperation"')).rows[0].audio_status).toBe("DELETED");});
+ it.each([true,null])("deletes media while metadata remains; status exposed=%s",async providerDeleted=>{const fake=new FakeTelephonyProvider();fake.deletion.providerDeleted=providerDeleted;const effect=await repository.execute({id:id(),kind:"RECORD"},fake);await new PocRepository(pool).cleanup(fake);expect((await pool.query('SELECT audio_status FROM "PocOperation"')).rows[0].audio_status).toBe("DELETED");expect(fake.recordingMetadata.get(effect.resource)).toEqual({status:"deleted",mediaRecoverable:false});});
  it("retries cleanup after repository restart but never beyond three attempts",async()=>{const fake=new FakeTelephonyProvider();fake.deletion.confirmed=false;await repository.execute({id:id(),kind:"RECORD"},fake);for(let n=0;n<4;n++) await expect(new PocRepository(pool).cleanup(fake)).rejects.toThrow();expect((await pool.query('SELECT attempts FROM "PocOperation"')).rows[0].attempts).toBe(3);});
  it("SQL forbids asserting DELETED without required proof",async()=>{await repository.execute({id:id(),kind:"RECORD"},new FakeTelephonyProvider());await expect(pool.query('UPDATE "PocOperation" SET audio_status=\'DELETED\'')).rejects.toThrow();});
  it("cleanup deadline and unknown recording SID remain blocking",async()=>{
@@ -55,6 +58,18 @@ describe("real POC PostgreSQL",()=>{
   const fake=new FakeTelephonyProvider();let calls=0;fake.makeOutboundCall=()=>{calls++;return new Promise(()=>{});};const command={id:id(),kind:"CALL"};const bounded=new PocRepository(pool,10);
   await expect(bounded.execute(command,fake)).rejects.toThrow("UNKNOWN");await expect(new PocRepository(pool).execute(command,fake)).rejects.toThrow("ALREADY_RESERVED");expect(calls).toBe(1);
  });
+ it.each(routes)("HTTP route %s persists an authorized synthetic callback",async route=>{
+  const fake=new FakeTelephonyProvider();const effect=await repository.execute({id:id(),kind:route==="message-status"?"SMS":route==="recording-status"?"RECORD":"CALL"},fake);
+  const fields:Record<string,string>={AccountSid:FAKE_ACCOUNT};
+  if(route==="message-status"){fields.MessageSid=effect.resource;fields.MessageStatus="delivered";}
+  else if(route==="recording-status"){fields.RecordingSid=effect.resource;fields.RecordingStatus="completed";}
+  else {fields.CallSid=effect.resource;if(route==="dial-result"){fields.DialCallStatus="no-answer";fields.CallStatus="completed";}else fields.CallStatus="completed";}
+  const signature=twilio.getExpectedTwilioSignature(FAKE_SECRET,BASE_URL+"/poc/webhooks/twilio/"+route,fields);
+  const server=createPocServer(repository);await new Promise<void>(resolve=>server.listen(0,"127.0.0.1",resolve));
+  try {const response=await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}/poc/webhooks/twilio/${route}`,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded","x-twilio-signature":signature},body:new URLSearchParams(fields).toString()});expect(response.status).toBe(route==="voice"||route==="dial-result"?200:204);
+   expect((await pool.query('SELECT status FROM "PocWebhookReceipt"')).rows[0].status).toBe(route==="dial-result"?"no-answer":route==="message-status"?"delivered":"completed");expect(fake.effects).toBe(1);
+  }finally{await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
+ });
  it("HTTP validates signature, persists before response, and never creates effects",async()=>{
   const fake=new FakeTelephonyProvider();const op=id();await repository.execute({id:op,kind:"CALL"},fake);
   await migrator.query('UPDATE "PocOperation" SET resource=$1 WHERE id=$2',["CA"+"1".repeat(32),op]);
@@ -66,6 +81,9 @@ describe("real POC PostgreSQL",()=>{
    expect((await request(SYNTHETIC_SIGNATURE)).status).toBe(204);expect(fake.effects).toBe(1);
    expect((await request(SYNTHETIC_SIGNATURE,SYNTHETIC_CALLBACK+"&organizationId=B")).status).toBe(403);
    expect((await pool.query('SELECT count(*)::int AS count FROM "PocWebhookReceipt"')).rows[0].count).toBe(1);
+   const samples:number[]=[];
+   for(let index=0;index<25;index++){const start=performance.now();expect((await request(SYNTHETIC_SIGNATURE)).status).toBe(204);samples.push(performance.now()-start);}
+   samples.sort((a,b)=>a-b);console.log(JSON.stringify({measurement:"synthetic_webhook_sql_roundtrip",n:25,p50:samples[12],p95:samples[23],max:samples[24]}));expect(samples[23]).toBeLessThan(500);
   }finally{await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
  });
 });

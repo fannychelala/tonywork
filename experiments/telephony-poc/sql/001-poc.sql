@@ -1,4 +1,5 @@
 -- Bootstrap only, isolated cluster. Synthetic local passwords, never provider secrets.
+BEGIN;
 CREATE ROLE tony_poc_migrator LOGIN PASSWORD 'synthetic_poc_migrator_only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
 CREATE ROLE tony_poc_runtime LOGIN PASSWORD 'synthetic_poc_runtime_only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
 REVOKE ALL ON DATABASE tony_poc FROM PUBLIC;
@@ -7,7 +8,6 @@ REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE, CREATE ON SCHEMA public TO tony_poc_migrator;
 GRANT USAGE ON SCHEMA public TO tony_poc_runtime;
 SET ROLE tony_poc_migrator;
-BEGIN;
 CREATE TABLE "PocOperation" (
  id uuid NOT NULL, campaign text NOT NULL CHECK(campaign = 'synthetic-local-v1'),
  account text NOT NULL CHECK(account = 'AC00000000000000000000000000000000'),

@@ -3,7 +3,8 @@ import { FakeTelephonyProvider, TwilioTelephonyProvider, AmbiguousEffect, comman
 import { verifyEnvelope } from "../webhook";
 import { SYNTHETIC_CALLBACK, SYNTHETIC_SIGNATURE } from "./fixtures";
 import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, dirname } from "node:path";
+import ts from "typescript";
 describe("synthetic effects and boundary", () => {
   it("SDK transport is exclusively injected and fake", async () => {
     const requests: unknown[] = []; const adapter = new TwilioTelephonyProvider(async request => { requests.push(request); return {status:201,body:{sid:"SM"+"0".repeat(32)}}; }, "LOCAL_FAKE");
@@ -13,11 +14,22 @@ describe("synthetic effects and boundary", () => {
   it.each([{kind:"CALL",id:"not-uuid"}, {kind:"SMS",id:"00000000-0000-4000-8000-000000000000",phone:"+123456789"}, {kind:"CALL",id:"00000000-0000-4000-8000-000000000000",recipient:"real"}])("rejects operator data outside synthetic contract", value => expect(() => commandSchema.parse(value)).toThrow());
   it("retains synthetic deletion semantics independently of metadata", async () => expect(await new FakeTelephonyProvider().deleteRecording()).toEqual({confirmed:true,providerDeleted:true,mediaUnavailable:true,authenticated:true}));
   it.each([SYNTHETIC_CALLBACK+"&CallStatus=completed", "%GG", "x="+"x".repeat(33000)])("rejects ambiguous/oversized envelope", raw => expect(() => verifyEnvelope("call-status",raw,SYNTHETIC_SIGNATURE)).toThrow());
-  it("has no imports of product/auth/scoring or network clients", () => {
-    for (const name of readdirSync("experiments/telephony-poc").filter(name=>name.endsWith(".ts")&&!name.endsWith("config.ts"))) {
-      const source=readFileSync(join("experiments/telephony-poc",name),"utf8");
-      expect(source).not.toMatch(/from\s+["'][^"']*(?:src\/|better-auth|withTenant|scoring|prisma|https|net)[^"']*["']/);
-      expect(source).not.toMatch(/\bfetch\s*\(|new\s+twilio\s*\(/);
+  it("entire POC runtime import graph is isolated from product and network clients", () => {
+    const root=resolve("experiments/telephony-poc");
+    const allowed=new Set(["zod","pg","twilio","node:http","node:crypto"]);
+    for(const name of readdirSync(root).filter(name=>name.endsWith(".ts")&&!name.endsWith("config.ts"))) {
+      const file=join(root,name);const source=readFileSync(file,"utf8");const tree=ts.createSourceFile(file,source,ts.ScriptTarget.Latest,true);
+      const visit=(node:ts.Node)=>{
+        if(ts.isImportDeclaration(node)||ts.isExportDeclaration(node)){
+          const spec=node.moduleSpecifier;if(spec&&ts.isStringLiteral(spec)){
+            if(spec.text.startsWith("."))expect(resolve(dirname(file),spec.text)+".ts").toMatch(new RegExp("^"+root.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"/[^/]+\\.ts$"));
+            else expect(allowed.has(spec.text)||spec.text==="vitest/config").toBe(true);
+          }
+        }
+        if(ts.isCallExpression(node)||ts.isNewExpression(node))expect(node.expression.getText(tree)).not.toMatch(/^(fetch|require|eval|Function|import\b|twilio)$/);
+        if(ts.isIdentifier(node))expect(["PrismaClient","withTenant","getAuth","getDatabase","XMLHttpRequest"]).not.toContain(node.text);
+        ts.forEachChild(node,visit);
+      };visit(tree);
     }
   });
 });

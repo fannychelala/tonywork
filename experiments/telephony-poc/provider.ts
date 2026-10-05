@@ -21,6 +21,7 @@ export class AmbiguousEffect extends Error { constructor() { super("UNKNOWN"); }
 export class ProviderRejected extends Error { constructor() { super("PROVIDER_REJECTED"); } }
 export class FakeTelephonyProvider implements TelephonyProvider {
   verifyWebhook = verifyEnvelope;
+  readonly recordingMetadata = new Map<string, { status: string; mediaRecoverable: boolean }>();
   effects = 0;
   ambiguous = false;
   deletion: DeletionProof = { confirmed: true, providerDeleted: true, mediaUnavailable: true, authenticated: true };
@@ -34,9 +35,12 @@ export class FakeTelephonyProvider implements TelephonyProvider {
   makeOutboundCall() { return this.effect("CA"); }
   sendSms() { return this.effect("SM"); }
   async getCall(resource: string) { return { resource, status: "completed" }; }
-  startRecording() { return this.effect("RE"); }
+  async startRecording() { const effect = await this.effect("RE"); this.recordingMetadata.set(effect.resource, { status: "completed", mediaRecoverable: true }); return effect; }
   async stopRecording() {}
-  async deleteRecording() { return { ...this.deletion }; }
+  async deleteRecording(sid?: string) {
+    if (sid && this.deletion.confirmed && this.deletion.mediaUnavailable && this.deletion.authenticated && this.deletion.providerDeleted !== false) this.recordingMetadata.set(sid, { status: "deleted", mediaRecoverable: false });
+    return { ...this.deletion };
+  }
 }
 // Injected HTTP-shaped local transport. No network client or credential configuration exists.
 export type SyntheticTransport = (request: { method: "GET" | "POST" | "DELETE"; path: string; data?: Readonly<Record<string, string>> }) => Promise<{ status: number; body: unknown }>;

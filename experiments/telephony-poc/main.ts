@@ -24,7 +24,16 @@ if (args.length) {
   const server = createPocServer(repository);
   server.listen(4315, "127.0.0.1");
   server.requestTimeout = 5000;
+  let cleaning = false;
+  const cleanupTimer = setInterval(async () => {
+    if (cleaning) return;
+    cleaning = true;
+    try { await repository.cleanup(provider); }
+    catch { console.error("CLEANUP_REQUIRED"); process.exitCode = 1; server.close(async () => { await pool.end(); }); clearInterval(cleanupTimer); }
+    finally { cleaning = false; }
+  }, 2000);
   for (const signal of ["SIGTERM", "SIGINT"] as const) process.once(signal, () => {
+    clearInterval(cleanupTimer);
     server.close(async () => { try { await repository.cleanup(provider); } catch { process.exitCode = 1; } finally { await pool.end(); } });
   });
 }
