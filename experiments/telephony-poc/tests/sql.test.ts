@@ -37,6 +37,24 @@ describe("real POC PostgreSQL",()=>{
  it.each([true,null])("deletes media while metadata remains; status exposed=%s",async providerDeleted=>{const fake=new FakeTelephonyProvider();fake.deletion.providerDeleted=providerDeleted;await repository.execute({id:id(),kind:"RECORD"},fake);await new PocRepository(pool).cleanup(fake);expect((await pool.query('SELECT audio_status FROM "PocOperation"')).rows[0].audio_status).toBe("DELETED");});
  it("retries cleanup after repository restart but never beyond three attempts",async()=>{const fake=new FakeTelephonyProvider();fake.deletion.confirmed=false;await repository.execute({id:id(),kind:"RECORD"},fake);for(let n=0;n<4;n++) await expect(new PocRepository(pool).cleanup(fake)).rejects.toThrow();expect((await pool.query('SELECT attempts FROM "PocOperation"')).rows[0].attempts).toBe(3);});
  it("SQL forbids asserting DELETED without required proof",async()=>{await repository.execute({id:id(),kind:"RECORD"},new FakeTelephonyProvider());await expect(pool.query('UPDATE "PocOperation" SET audio_status=\'DELETED\'')).rejects.toThrow();});
+ it("cleanup deadline and unknown recording SID remain blocking",async()=>{
+  const fake=new FakeTelephonyProvider();const op=id();await repository.execute({id:op,kind:"RECORD"},fake);
+  await migrator.query(`UPDATE "PocOperation" SET deadline=now()-interval '1 minute',resource=NULL WHERE id=$1`,[op]);
+  await expect(repository.cleanup(fake)).rejects.toThrow("CLEANUP_REQUIRED");expect((await pool.query('SELECT audio_status FROM "PocOperation"')).rows[0].audio_status).toBe("DELETE_FAILED");
+ });
+ it("concurrent cleanup does not double-delete a completed obligation",async()=>{
+  const fake=new FakeTelephonyProvider();await repository.execute({id:id(),kind:"RECORD"},fake);let count=0;
+  const original=fake.deleteRecording.bind(fake);fake.deleteRecording=async()=>{count++;return original();};
+  await Promise.all([repository.cleanup(fake),new PocRepository(pool).cleanup(fake)]);expect(count).toBe(1);
+ });
+ it("rejects cross-campaign direct SQL and contains no payload storage columns",async()=>{
+  await expect(pool.query('INSERT INTO "PocOperation" (id,account,campaign,kind,state) VALUES($1,$2,$3,$4,$5)',[id(),FAKE_ACCOUNT,"other-campaign","CALL","UNKNOWN"])).rejects.toThrow();
+  const columns=await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name IN ('PocOperation','PocWebhookReceipt')");expect(columns.rows.map(r=>r.column_name).join(',')).not.toMatch(/phone|body|payload|secret|token|audio_bytes/);
+ });
+ it("bounded hung creation persists UNKNOWN and cannot be resubmitted",async()=>{
+  const fake=new FakeTelephonyProvider();let calls=0;fake.makeOutboundCall=()=>{calls++;return new Promise(()=>{});};const command={id:id(),kind:"CALL"};const bounded=new PocRepository(pool,10);
+  await expect(bounded.execute(command,fake)).rejects.toThrow("UNKNOWN");await expect(new PocRepository(pool).execute(command,fake)).rejects.toThrow("ALREADY_RESERVED");expect(calls).toBe(1);
+ });
  it("HTTP validates signature, persists before response, and never creates effects",async()=>{
   const fake=new FakeTelephonyProvider();const op=id();await repository.execute({id:op,kind:"CALL"},fake);
   await migrator.query('UPDATE "PocOperation" SET resource=$1 WHERE id=$2',["CA"+"1".repeat(32),op]);

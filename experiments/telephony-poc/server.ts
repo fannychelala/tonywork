@@ -1,8 +1,9 @@
 import { createServer } from "node:http";
 import { routes, verifyEnvelope, type Route } from "./webhook";
 import { type PocRepository } from "./repository";
-export function createPocServer(repository: PocRepository) {
+export function createPocServer(repository: Pick<PocRepository, "receive">) {
   let windowStart = Date.now(), requests = 0;
+  const resources = new Map<string, { start: number; count: number }>();
   return createServer(async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     if (Date.now() - windowStart >= 1000) { windowStart = Date.now(); requests = 0; }
@@ -20,6 +21,12 @@ export function createPocServer(repository: PocRepository) {
       }
       const signature = req.headers["x-twilio-signature"];
       const event = verifyEnvelope(route, new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks)), typeof signature === "string" ? signature : "");
+      const now = Date.now();
+      for (const [key, value] of resources) if (now - value.start >= 60000) resources.delete(key);
+      const key = event.resource;
+      const window = resources.get(key) ?? { start: now, count: 0 };
+      if ((!resources.has(key) && resources.size >= 1000) || ++window.count > 300) { res.writeHead(429).end(); return; }
+      resources.set(key, window);
       await repository.receive(route, event);
       if (route === "voice" || route === "dial-result") {
         res.setHeader("Content-Type", "text/xml"); res.writeHead(200).end("<Response><Hangup/></Response>");

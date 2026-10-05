@@ -15,7 +15,7 @@ Kinds CALL/SMS/RECORD/NUMBER, identifiant UUID unique et destinataires opaques s
 
 Les cinq POST expérimentaux exigent une signature Twilio calculée sous la clé synthétique fixe et l'URL canonique http://127.0.0.1:4315, sans confiance dans Host/proxy/cookies. L'événement doit correspondre à une ressource déjà enregistrée. Les réponses Voice/Dial se limitent à Hangup ; forwarding réel non implémenté à ce niveau. Aucun webhook n'appelle REST ni le CRM.
 
-SDK serveur twilio 6.1.2 (MIT, Node >=20, contrôlé sous Node 24), uniquement validateur officiel. L'adaptateur est pour l'instant un transport injecté fermé LOCAL_FAKE ; aucun client SDK REST ni réseau Twilio ne peut être construit. Le futur branchement REST/provider exige la seconde validation humaine et des tests supplémentaires : il n'est pas présenté comme validé par ce POC local.
+SDK serveur twilio 6.1.2 (MIT, Node >=20, contrôlé sous Node 24), validateur officiel. L'adaptateur traduit les opérations REST et les preuves audio sur un transport local injecté fermé LOCAL_FAKE ; aucun client SDK REST ni réseau Twilio ne peut être construit. Le futur branchement REST/provider exige la seconde validation humaine et des tests supplémentaires : il n'est pas présenté comme validé par ce POC local.
 
 Le fake audio produit exclusivement des preuves synthétiques. DELETED exige DELETE confirmé, providerDeleted true ou non exposé (null), média non disponible et contrôle authentifié. Métadonnées conservées possibles ; aucune promesse d'effacement physique. Trois essais maximum et échéance quinze minutes, blocage RECORD si obligation pendante/échouée. Reprise au démarrage et arrêt ; erreur CLI/cleanup = exit non nul. Pas d'octet audio ni métadonnée personnelle.
 

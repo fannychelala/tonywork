@@ -1,11 +1,18 @@
 import { Pool, type PoolClient } from "pg";
 import { FAKE_ACCOUNT } from "./config";
-import { type Command, type TelephonyProvider, AmbiguousEffect, commandSchema } from "./provider";
+import { type Command, type TelephonyProvider, AmbiguousEffect, ProviderRejected, commandSchema } from "./provider";
 import { type Envelope, type Route } from "./webhook";
 const campaign = "synthetic-local-v1";
 const terminal = new Set(["completed", "busy", "no-answer", "failed", "canceled", "delivered", "undelivered", "deleted"]);
 export class PocRepository {
-  constructor(readonly pool: Pool) {}
+  constructor(readonly pool: Pool, private readonly timeoutMs = 5000) {
+    if (timeoutMs < 1 || timeoutMs > 5000) throw new Error("INVALID_TIMEOUT");
+  }
+  private async bounded<T>(work: Promise<T>): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try { return await Promise.race([work, new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new AmbiguousEffect()), this.timeoutMs); })]); }
+    finally { clearTimeout(timer); }
+  }
   private async transaction<T>(run: (client: PoolClient) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
     try { await client.query("BEGIN"); const result = await run(client); await client.query("COMMIT"); return result; }
@@ -17,12 +24,12 @@ export class PocRepository {
     const reserved = await this.reserve(command);
     if (!reserved) throw new Error("ALREADY_RESERVED");
     try {
-      const effect = command.kind === "CALL" ? await provider.makeOutboundCall() : command.kind === "SMS" ? await provider.sendSms() : command.kind === "RECORD" ? await provider.startRecording() : await provider.provisionNumber();
+      const effect = await this.bounded(command.kind === "CALL" ? provider.makeOutboundCall() : command.kind === "SMS" ? provider.sendSms() : command.kind === "RECORD" ? provider.startRecording() : provider.provisionNumber());
       await this.pool.query('UPDATE "PocOperation" SET state=$1,resource=$2,version=version+1 WHERE id=$3', ["ACCEPTED", effect.resource, command.id]);
       return effect;
     } catch (error) {
-      await this.pool.query('UPDATE "PocOperation" SET state=$1,version=version+1 WHERE id=$2', [error instanceof AmbiguousEffect ? "UNKNOWN" : "FAILED", command.id]);
-      throw new Error(error instanceof AmbiguousEffect ? "UNKNOWN" : "EFFECT_FAILED");
+      await this.pool.query('UPDATE "PocOperation" SET state=$1,version=version+1 WHERE id=$2', [error instanceof ProviderRejected ? "FAILED" : "UNKNOWN", command.id]);
+      throw new Error(error instanceof ProviderRejected ? "EFFECT_FAILED" : "UNKNOWN");
     }
   }
   private reserve(command: Command) {
@@ -68,29 +75,37 @@ export class PocRepository {
     const pending = await this.pool.query<{ id: string; resource: string | null; attempts: number; deadline: Date; state: string }>('SELECT id,resource,attempts,deadline,state FROM "PocOperation" WHERE audio_status IN ($1,$2)', ["PENDING", "DELETE_FAILED"]);
     let failures = 0;
     for (const operation of pending.rows) {
-      await this.transaction(async client => {
-        const claim = await client.query('SELECT attempts,audio_status FROM "PocOperation" WHERE id=$1 FOR UPDATE', [operation.id]);
-        if (claim.rows[0]?.audio_status === "DELETED") return;
-        if (!operation.resource || claim.rows[0]?.attempts >= 3 || operation.deadline.getTime() < Date.now()) {
-          await client.query('UPDATE "PocOperation" SET audio_status=$1 WHERE id=$2', ["DELETE_FAILED", operation.id]); failures++; return;
+      const client = await this.pool.connect();
+      const lockKey = operation.id;
+      try {
+        await client.query("SELECT pg_advisory_lock(hashtextextended($1, 5011))", [lockKey]);
+        const claim = await client.query('SELECT attempts,audio_status,resource,deadline FROM "PocOperation" WHERE id=$1', [operation.id]);
+        const current = claim.rows[0];
+        if (current?.audio_status === "DELETED") continue;
+        if (!current?.resource || current.attempts >= 3 || current.deadline.getTime() < Date.now()) {
+          await client.query('UPDATE "PocOperation" SET audio_status=$1 WHERE id=$2', ["DELETE_FAILED", operation.id]); failures++; continue;
         }
-        // Only the fake transport can run here. No remote IO is enabled in LOCAL_FAKE.
+        // Durable attempt before effect; no open SQL transaction during provider calls.
         await client.query('UPDATE "PocOperation" SET attempts=attempts+1 WHERE id=$1', [operation.id]);
         try {
-          await provider.stopRecording(operation.resource);
-          const proof = await provider.deleteRecording(operation.resource);
-          const valid = proof.confirmed && proof.providerDeleted !== false && proof.mediaUnavailable && proof.authenticated;
+          await this.bounded(provider.stopRecording(current.resource));
+          const proof = await this.bounded(provider.deleteRecording(current.resource));
+          const valid = proof.confirmed && proof.providerDeleted !== false && proof.mediaUnavailable && proof.authenticated && current.deadline.getTime() >= Date.now();
           await client.query('UPDATE "PocOperation" SET audio_status=$1,delete_confirmed=$2,provider_deleted=$3,media_unavailable=$4,version=version+1 WHERE id=$5', [valid ? "DELETED" : "DELETE_FAILED", proof.confirmed, proof.providerDeleted, proof.mediaUnavailable && proof.authenticated, operation.id]);
           if (!valid) failures++;
         } catch { await client.query('UPDATE "PocOperation" SET audio_status=$1 WHERE id=$2', ["DELETE_FAILED", operation.id]); failures++; }
-      });
+      } finally {
+        try { await client.query("SELECT pg_advisory_unlock(hashtextextended($1, 5011))", [lockKey]); }
+        finally { client.release(); }
+      }
     }
+
     if (failures) throw new Error("CLEANUP_REQUIRED");
   }
   async reconcile(id: string, provider: TelephonyProvider) {
     const row = await this.pool.query<{ resource: string | null; state: string }>('SELECT resource,state FROM "PocOperation" WHERE id=$1', [commandSchema.shape.id.parse(id)]);
     if (!row.rows[0]?.resource) throw new Error("MANUAL_RECONCILIATION_REQUIRED");
-    const result = await provider.getCall(row.rows[0].resource);
+    const result = await this.bounded(provider.getCall(row.rows[0].resource));
     return { status: result.status };
   }
 }

@@ -16,11 +16,12 @@ export function verifyEnvelope(route: Route, raw: string, signature: string): En
     fields[key] = value;
   }
   if (!twilio.validateRequest(FAKE_SECRET, signature, `${BASE_URL}/poc/webhooks/twilio/${route}`, fields)) throw new Error("FORBIDDEN");
-  if (Object.hasOwn(fields, "organizationId")) throw new Error("FORBIDDEN");
+  if (fields.AccountSid !== FAKE_ACCOUNT || Object.hasOwn(fields, "organizationId")) throw new Error("FORBIDDEN");
   const resource = route === "recording-status" ? fields.RecordingSid : route === "message-status" ? fields.MessageSid : fields.CallSid;
   const expected = route === "recording-status" ? "RE" : route === "message-status" ? "SM" : "CA";
   if (!resource?.startsWith(expected)) throw new Error("INVALID_ENVELOPE");
   const sequence = fields.SequenceNumber;
   if (sequence !== undefined && !/^\d+$/.test(sequence)) throw new Error("INVALID_ENVELOPE");
-  return envelope.parse({ account: fields.AccountSid, resource, parent: fields.ParentCallSid ?? null, status: fields.CallStatus ?? fields.MessageStatus ?? fields.RecordingStatus ?? fields.DialCallStatus, sequence: sequence === undefined ? null : Number(sequence) });
+  const status = route === "dial-result" ? fields.DialCallStatus : route === "message-status" ? fields.MessageStatus : route === "recording-status" ? fields.RecordingStatus : fields.CallStatus;
+  return envelope.parse({ account: fields.AccountSid, resource, parent: fields.ParentCallSid ?? null, status, sequence: sequence === undefined ? null : Number(sequence) });
 }
