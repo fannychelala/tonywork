@@ -1,0 +1,38 @@
+name: tony-poc-local
+services:
+  poc-postgres:
+    image: postgres:18-bookworm
+    environment:
+      POSTGRES_USER: poc_bootstrap
+      POSTGRES_PASSWORD: synthetic_poc_bootstrap_only
+      POSTGRES_DB: tony_poc
+    ports: ["127.0.0.1:5545:5432"]
+    volumes:
+      - poc-data:/var/lib/postgresql
+      - ./sql/001-poc.sql:/docker-entrypoint-initdb.d/001-poc.sql:ro
+    networks: [poc-private]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poc_bootstrap -d tony_poc"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  poc:
+    build:
+      context: ../..
+      dockerfile: experiments/telephony-poc/Dockerfile
+    environment:
+      POC_DATABASE_URL: postgresql://tony_poc_runtime:synthetic_poc_runtime_only@poc-postgres:5432/tony_poc
+    depends_on:
+      poc-postgres: { condition: service_healthy }
+    networks: [poc-private]
+    # No published HTTP port: only synthetic requests from the local operator/container.
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+networks:
+  poc-private:
+    internal: true
+volumes:
+  poc-data:

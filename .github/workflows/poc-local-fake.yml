@@ -1,0 +1,54 @@
+name: POC LOCAL_FAKE
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  sql-http:
+    runs-on: ubuntu-latest
+    services:
+      postgres-poc:
+        image: postgres:18-bookworm
+        env:
+          POSTGRES_DB: tony_poc
+          POSTGRES_USER: poc_bootstrap
+          POSTGRES_PASSWORD: synthetic_poc_bootstrap_only
+        ports: [5545:5432]
+        options: >-
+          --health-cmd "pg_isready -U poc_bootstrap -d tony_poc"
+          --health-interval 2s --health-timeout 2s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm install -g pnpm@11.25.0
+      - run: pnpm install --frozen-lockfile
+      - run: psql postgresql://poc_bootstrap:synthetic_poc_bootstrap_only@localhost:5545/tony_poc -v ON_ERROR_STOP=1 -f experiments/telephony-poc/sql/001-poc.sql
+      - run: pnpm exec vitest run --config experiments/telephony-poc/vitest.config.ts
+  network:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm install -g pnpm@11.25.0
+      - run: node -e "require('fs').writeFileSync('.env','BETTER_AUTH_SECRET='+require('crypto').randomBytes(32).toString('base64')+'\n',{mode:384})"
+      - run: docker compose up --build -d --wait app worker
+      - run: docker compose -f experiments/telephony-poc/compose.yml up --build -d --wait
+      - name: Prove bidirectional network and credential isolation
+        run: node experiments/telephony-poc/network-check.mjs
+      - name: Verify POC volume persists and server restarts
+        run: |
+          docker compose -f experiments/telephony-poc/compose.yml exec -T poc pnpm exec tsx experiments/telephony-poc/main.ts execute 00000000-0000-4000-8000-000000000001 CALL --confirm-synthetic
+          docker compose -f experiments/telephony-poc/compose.yml down
+          docker compose -f experiments/telephony-poc/compose.yml up -d --wait
+          test "$(docker compose -f experiments/telephony-poc/compose.yml exec -T poc-postgres psql -U poc_bootstrap -d tony_poc -Atc 'SELECT count(*) FROM "PocOperation"')" = "1"
+          docker compose -f experiments/telephony-poc/compose.yml exec -T poc node -e "require('http').get('http://127.0.0.1:4315/poc/webhooks/twilio/voice',r=>{if(r.statusCode!==405)process.exit(1)})"
+      - run: docker compose -f experiments/telephony-poc/compose.yml down
+        if: always()
+      - run: docker compose down
+        if: always()
+      - name: Both stacks stopped
+        if: always()
+        run: |
+          test -z "$(docker compose -f experiments/telephony-poc/compose.yml ps --status running -q)"
+          test -z "$(docker compose ps --status running -q)"
