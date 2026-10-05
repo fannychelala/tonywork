@@ -6,8 +6,8 @@ export const commandSchema = z.object({ id: z.string().uuid(), kind: z.enum(["CA
 export type Command = z.infer<typeof commandSchema>;
 export type Effect = { resource: string };
 export type DeletionProof = { confirmed: boolean; providerDeleted: boolean | null; mediaUnavailable: boolean; authenticated: boolean };
-export interface TelephonyProvider {
-  verifyWebhook(route: Route, raw: string, signature: string): ReturnType<typeof verifyEnvelope>;
+export interface TelephonyProvider<Event = ReturnType<typeof verifyEnvelope>> {
+  verifyWebhook(route: Route, raw: string, signature: string): Event;
   provisionNumber(): Promise<Effect>;
   releaseNumber(sid: string): Promise<void>;
   makeOutboundCall(): Promise<Effect>;

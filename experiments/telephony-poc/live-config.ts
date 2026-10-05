@@ -39,6 +39,6 @@ export function parseLivePreparation(input: unknown): Readonly<LivePreparation> 
 
 // Fail before loading credentials, constructing a client, connecting or listening.
 // No environment variable, manifest field or operator CLI flag can remove this lock.
-export function assertLiveEffectsAuthorized(): never {
+export function assertLiveEffectsAuthorized(): void {
   throw new Error("FINAL_LIVE_AUTHORIZATION_REQUIRED");
 }
