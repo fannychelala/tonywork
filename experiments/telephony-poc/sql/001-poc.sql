@@ -14,7 +14,7 @@ CREATE TABLE "PocOperation" (
  kind text NOT NULL CHECK(kind IN ('CALL','SMS','RECORD','DELETE','NUMBER')),
  state text NOT NULL CHECK(state IN ('RESERVED','UNKNOWN','ACCEPTED','COMPLETE','FAILED')),
  version integer NOT NULL DEFAULT 1 CHECK(version > 0), resource text CHECK(resource ~ '^(CA|SM|RE|PN)[0-9a-f]{32}$'),
- status text, sequence integer CHECK(sequence >= 0),
+ status text CHECK(status IN ('queued','ringing','in-progress','completed','busy','no-answer','failed','canceled','sent','delivered','undelivered','deleted')), sequence integer CHECK(sequence >= 0),
  audio_status text CHECK(audio_status IN ('PENDING','DELETED','DELETE_FAILED')),
  deadline timestamptz, attempts integer NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 3),
  delete_confirmed boolean NOT NULL DEFAULT false, provider_deleted boolean, media_unavailable boolean NOT NULL DEFAULT false,
@@ -26,7 +26,7 @@ CREATE TABLE "PocWebhookReceipt" (
  account text NOT NULL CHECK(account = 'AC00000000000000000000000000000000'),
  campaign text NOT NULL CHECK(campaign = 'synthetic-local-v1'),
  operation_id uuid NOT NULL,
- event_key text NOT NULL CHECK(length(event_key) BETWEEN 1 AND 150),
+ event_key text NOT NULL CHECK(event_key ~ '^(voice|dial-result|call-status|message-status|recording-status):(CA|SM|RE)[0-9a-f]{32}:([0-9]{1,5}|queued|ringing|in-progress|completed|busy|no-answer|failed|canceled|sent|delivered|undelivered|deleted)$'),
  route text NOT NULL CHECK(route IN ('voice','dial-result','call-status','message-status','recording-status')),
  resource text NOT NULL CHECK(resource ~ '^(CA|SM|RE)[0-9a-f]{32}$'),
  status text NOT NULL CHECK(status IN ('queued','ringing','in-progress','completed','busy','no-answer','failed','canceled','sent','delivered','undelivered','deleted')),
@@ -35,7 +35,8 @@ CREATE TABLE "PocWebhookReceipt" (
  FOREIGN KEY(account,campaign,operation_id) REFERENCES "PocOperation"(account,campaign,id) ON DELETE RESTRICT
 );
 CREATE INDEX poc_cleanup ON "PocOperation"(deadline) WHERE audio_status IN ('PENDING','DELETE_FAILED');
-GRANT SELECT, INSERT, UPDATE ON "PocOperation" TO tony_poc_runtime;
+GRANT SELECT, INSERT ON "PocOperation" TO tony_poc_runtime;
+GRANT UPDATE (state,version,resource,status,sequence,audio_status,attempts,delete_confirmed,provider_deleted,media_unavailable) ON "PocOperation" TO tony_poc_runtime;
 GRANT SELECT, INSERT ON "PocWebhookReceipt" TO tony_poc_runtime;
 COMMIT;
 RESET ROLE;
