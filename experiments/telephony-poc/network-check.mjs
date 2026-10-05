@@ -1,0 +1,26 @@
+import { execFileSync } from 'node:child_process';
+import assert from 'node:assert/strict';
+const poc = ['compose','-f','experiments/telephony-poc/compose.yml'];
+const id = (args, service) => execFileSync('docker',[...args,'ps','-q',service],{encoding:'utf8'}).trim();
+const inspect = value => JSON.parse(execFileSync('docker',['inspect',value],{encoding:'utf8'}))[0];
+const tonyDb = inspect(id(['compose'],'postgres'));
+const pocDb = inspect(id(poc,'poc-postgres'));
+const app = inspect(id(['compose'],'app'));
+const processPoc = inspect(id(poc,'poc'));
+const networks = value => Object.keys(value.NetworkSettings.Networks);
+assert(!networks(app).some(n=>networks(processPoc).includes(n)));
+assert(!networks(tonyDb).some(n=>networks(pocDb).includes(n)));
+const privateNet = JSON.parse(execFileSync('docker',['network','inspect',networks(pocDb)[0]],{encoding:'utf8'}))[0];
+assert.equal(privateNet.Internal,true);
+assert(!processPoc.Config.Env.some(e=>/^(DATABASE_URL|AUTH_DATABASE_URL|MIGRATION_DATABASE_URL|BETTER_AUTH|TWILIO)/.test(e)));
+assert(!app.Config.Env.some(e=>e.includes('tony_poc')));
+assert(!processPoc.Mounts.some(m=>tonyDb.Mounts.some(t=>t.Source===m.Source)));
+const ip = value => Object.values(value.NetworkSettings.Networks)[0].IPAddress;
+const deny = (container, host, port) => {
+ const code = `const s=require('net').connect({host:${JSON.stringify(host)},port:${port}});s.setTimeout(1500);s.on('connect',()=>{s.destroy();process.exit(1)});s.on('error',()=>process.exit(0));s.on('timeout',()=>{s.destroy();process.exit(0)});`;
+ execFileSync('docker',['exec',container,'node','-e',code],{stdio:'pipe'});
+};
+deny(processPoc.Id,ip(tonyDb),5432);
+deny(app.Id,ip(pocDb),5432);
+deny(processPoc.Id,'api.twilio.com',443);
+console.log('BIDIRECTIONAL_NETWORK_AND_CREDENTIAL_ISOLATION_OK');
