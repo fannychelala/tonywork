@@ -60,6 +60,12 @@ describe("synthetic rehearsal of the LIVE boundary", () => {
     const probe = vi.fn(), provider = new LiveTwilioProvider(parseLiveBinding(livePrivateFixture()), async () => ({ status: 500, body: null }), probe);
     expect((await provider.deleteRecording("RE" + "7".repeat(32))).confirmed).toBe(false); expect(probe).not.toHaveBeenCalled();
   });
+  it("treats an unexpected metadata list as inconclusive, never as deletion proof", async () => {
+    const probe = vi.fn(async () => ({ status: 404, authenticated: true }));
+    const provider = new LiveTwilioProvider(parseLiveBinding(livePrivateFixture()), async request => ({ status: request.method === "DELETE" ? 204 : 200, body: { recordings: [] } }), probe);
+    expect(await provider.deleteRecording("RE" + "7".repeat(32))).toEqual({ confirmed: true, providerDeleted: null, mediaUnavailable: false, authenticated: false });
+    expect(probe).not.toHaveBeenCalled();
+  });
   it("verifies the entire signed form before projection, ignores proxy headers and binds caller/line", () => {
     const binding = parseLiveBinding(livePrivateFixture());
     const fields = { AccountSid: binding.manifest.accountSid, CallSid: "CA" + "6".repeat(32), From: binding.testers[0]!.phone, To: binding.number, CallStatus: "ringing", ExtraTwilioField: "synthetic" };

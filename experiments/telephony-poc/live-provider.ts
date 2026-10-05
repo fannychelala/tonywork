@@ -78,10 +78,8 @@ export class LiveTwilioProvider implements TelephonyProvider<LiveEvent> {
       }
       if (metadata.status !== 200) return { ...empty, confirmed: true };
       const direct = z.object({ sid: z.literal(sid), status: z.string() }).passthrough().safeParse(metadata.body);
-      const listed = z.object({ recordings: z.array(z.object({ sid: z.string(), status: z.string() }).passthrough()) }).passthrough().safeParse(metadata.body);
-      const found = direct.success ? direct.data : listed.success ? listed.data.recordings.find(row => row.sid === sid) : undefined;
-      if (!direct.success && !listed.success) return { ...empty, confirmed: true };
-      if (found) providerDeleted = found.status === "deleted";
+      if (!direct.success) return { ...empty, confirmed: true };
+      providerDeleted = direct.data.status === "deleted";
       const media = await this.probe(sid);
       return { confirmed: true, providerDeleted, mediaUnavailable: media.status === 404 && media.authenticated, authenticated: media.authenticated };
     } catch { return { ...empty, confirmed: true }; }
