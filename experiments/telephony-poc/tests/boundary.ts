@@ -42,6 +42,7 @@ export function assertPocGraph(entry: string, mode: "LOCAL_FAKE" | "LIVE", files
       aliases(tree);
     }
     function visit(node: ts.Node) {
+      if (ts.isIdentifier(node) && ["fetch", "require", "eval", "Function", "WebSocket", "EventSource"].includes(node.text)) throw new Error("DYNAMIC_OR_NETWORK_CAPABILITY");
       if (ts.isIdentifier(node) && ["PrismaClient", "withTenant", "getAuth", "getDatabase", "XMLHttpRequest"].includes(node.text)) throw new Error("PRODUCT_CAPABILITY");
       if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
         const expression = node.expression.getText(tree);

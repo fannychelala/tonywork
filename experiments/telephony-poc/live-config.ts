@@ -10,7 +10,7 @@ const manifest = z.object({
   publicOrigin: z.string().url().refine(value => {
     const url = new URL(value);
     return url.protocol === "https:" && /^[a-z0-9]+(?:-[a-z0-9]+)*\.trycloudflare\.com$/.test(url.hostname)
-      && !url.username && !url.password && !url.port && url.pathname === "/" && !url.search && !url.hash;
+      && value === url.origin && !url.username && !url.password && !url.port && url.pathname === "/" && !url.search && !url.hash;
   }),
   maximumBudgetCents: z.number().int().min(1).max(5000), currency: z.literal("EUR"),
   startsAt: z.literal("2026-10-12T12:00:00.000Z"), endsAt: z.literal("2026-10-12T14:00:00.000Z"),

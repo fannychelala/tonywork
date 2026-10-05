@@ -35,6 +35,7 @@ describe("LIVE preparation has no effect authorization", () => {
     { databaseUrl: "postgresql://tony_poc_runtime:x@external.example/tony_poc" },
     { publicOrigin: "http://synthetic-poc.trycloudflare.com" },
     { publicOrigin: "https://synthetic-poc.trycloudflare.com/voice" },
+    { publicOrigin: "https://synthetic-poc.trycloudflare.com/" },
     { publicOrigin: "https://synthetic-poc.trycloudflare.com?secret=x" },
     { publicOrigin: "https://synthetic-poc.trycloudflare.com.attacker.example" },
     { publicOrigin: "https://user:password@synthetic-poc.trycloudflare.com" },

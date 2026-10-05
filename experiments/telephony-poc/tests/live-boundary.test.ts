@@ -11,6 +11,7 @@ describe("mode-specific import boundaries", () => {
     'import sdk from "twilio"; const { Twilio: Alias } = sdk; new Alias("x", "y");',
     'import { request } from "node:https"; request("https://example.test");',
     'import("./hidden");', 'fetch("https://example.test");', 'const x = PrismaClient;',
+    'const aliased = fetch; aliased("https://example.test");',
   ])("detects forbidden capabilities including aliases", source => {
     const entry = resolve("experiments/telephony-poc/mutant.ts");
     expect(() => assertPocGraph(entry, "LOCAL_FAKE", { [entry]: source })).toThrow();

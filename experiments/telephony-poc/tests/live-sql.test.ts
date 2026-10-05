@@ -60,6 +60,25 @@ describe("LIVE rehearsal on a separate real PostgreSQL", () => {
     expect(results.filter(r => r.status === "fulfilled")).toHaveLength(2);
     expect((await pool.query('SELECT count(*)::int AS n FROM "PocOperation" WHERE kind=\'CALL\' AND origin<>\'INBOUND\'')).rows[0].n).toBe(5);
   });
+  it("serializes distinct concurrent intents against a tighter budget before any effect", async () => {
+    const tight = parseLiveBinding({ ...livePrivateFixture(), fixedCostCents: 4800 });
+    await migrator.query('TRUNCATE "PocWebhookReceipt", "PocOperation"');
+    const repo = new LivePocRepository(pool, tight, now); await repo.bindNumber();
+    const { provider, requests } = syntheticProvider();
+    const results = await Promise.allSettled(Array.from({ length: 8 }, () => repo.execute({ id: randomUUID(), kind: "CALL", slot: "T1" }, provider)));
+    expect(results.filter(result => result.status === "fulfilled")).toHaveLength(2);
+    expect(requests.filter(request => request.method === "POST")).toHaveLength(2);
+    expect((await pool.query('SELECT sum(reserved_cents)::int AS total FROM "PocOperation"')).rows[0].total).toBe(5000);
+  });
+  it("refuses audio without the separate consent before reserving or contacting a provider", async () => {
+    const { provider, requests } = syntheticProvider();
+    const call = await repository().execute({ id: randomUUID(), kind: "CALL", slot: "T1" }, provider);
+    const fixture = livePrivateFixture(), privateBinding = parseLiveBinding({ ...fixture, testers: fixture.testers.map(t => ({ ...t, audioConsent: false })) });
+    const count = requests.length;
+    await expect(new LivePocRepository(pool, privateBinding, now).execute({ id: randomUUID(), kind: "RECORD", slot: "T1", callSid: call.resource, audibleReminderConfirmed: true }, provider)).rejects.toThrow("AUDIO_CONSENT_REQUIRED");
+    expect(requests).toHaveLength(count);
+    expect((await pool.query('SELECT count(*)::int AS n FROM "PocOperation" WHERE kind=\'RECORD\'')).rows[0].n).toBe(0);
+  });
   it("replays incoming TwiML after a repository restart without reserving another Dial", async () => {
     const first = await repository().receive("voice", incoming());
     const responses = await Promise.all(Array.from({ length: 8 }, () => repository().receive("voice", incoming())));
