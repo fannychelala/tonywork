@@ -7,13 +7,10 @@ import { createLivePocServer } from "./live-server";
 export async function startPreparedLive(loadPrivate: () => unknown): Promise<void> {
   assertLiveEffectsAuthorized();
   const { binding, transport, probe } = createLiveNetworkTransport(loadPrivate);
-  const number = await transport({ method: "GET", path: `/2010-04-01/Accounts/${binding.manifest.accountSid}/IncomingPhoneNumbers/${binding.manifest.numberSid}.json` });
-  if (number.status !== 200 || typeof number.body !== "object" || !number.body) throw new Error("NUMBER_PREFLIGHT_FAILED");
-  const body = number.body as Record<string, unknown>;
-  const capabilities = body.capabilities as Record<string, unknown> | undefined;
-  if (body.sid !== binding.manifest.numberSid || body.account_sid !== binding.manifest.accountSid || body.phone_number !== binding.number || !capabilities?.voice || !capabilities?.sms) throw new Error("NUMBER_PREFLIGHT_FAILED");
+  const provider = new LiveTwilioProvider(binding, transport, probe);
+  await provider.verifyNumber();
   const pool = new Pool({ connectionString: binding.manifest.databaseUrl, max: 4 });
-  const repository = new LivePocRepository(pool, binding), provider = new LiveTwilioProvider(binding, transport, probe);
+  const repository = new LivePocRepository(pool, binding);
   const server = createLivePocServer(binding, repository);
   try {
     await repository.bindNumber();

@@ -28,6 +28,11 @@ export class LiveTwilioProvider implements TelephonyProvider<LiveEvent> {
   }
   async provisionNumber(): Promise<never> { throw new Error("ADMINISTRATIVE_ONLY"); }
   async releaseNumber(_sid: string): Promise<never> { void _sid; throw new Error("ADMINISTRATIVE_ONLY"); }
+  async verifyNumber() {
+    const response = await this.transport({ method: "GET", path: this.path(`IncomingPhoneNumbers/${this.#binding.manifest.numberSid}.json`) });
+    const valid = z.object({ sid: z.literal(this.#binding.manifest.numberSid), account_sid: z.literal(this.#binding.manifest.accountSid), phone_number: z.literal(this.#binding.number), capabilities: z.object({ voice: z.literal(true), sms: z.literal(true) }).passthrough() }).passthrough().safeParse(response.body);
+    if (response.status !== 200 || !valid.success) throw new Error("NUMBER_PREFLIGHT_FAILED");
+  }
   makeOutboundCall() {
     const target = this.#binding.testers.find(t => t.slot === this.slot); if (!target) throw new Error("FORBIDDEN");
     // Provider-side ten-second call limit bounds any later REST recording even after process death.

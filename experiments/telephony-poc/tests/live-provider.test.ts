@@ -9,6 +9,15 @@ import { createLiveNetworkTransport } from "../live-transport";
 import { assertPocGraph } from "./boundary";
 
 describe("synthetic rehearsal of the LIVE boundary", () => {
+  it.each([{ account_sid: "AC" + "9".repeat(32) }, { sid: "PN" + "9".repeat(32) }, { phone_number: "+33939200001" }, { capabilities: { voice: "true", sms: true } }, { capabilities: { voice: true, sms: false } }])("refuses a divergent provider number without creating an effect", async override => {
+    const binding = parseLiveBinding(livePrivateFixture()), transport = vi.fn(async (_request: LiveRequest) => { void _request; return { status: 200, body: { account_sid: binding.manifest.accountSid, sid: binding.manifest.numberSid, phone_number: binding.number, capabilities: { voice: true, sms: true }, ...override } }; });
+    await expect(new LiveTwilioProvider(binding, transport, vi.fn()).verifyNumber()).rejects.toThrow("NUMBER_PREFLIGHT_FAILED");
+    expect(transport).toHaveBeenCalledTimes(1); expect(transport.mock.calls[0]?.[0]?.method).toBe("GET");
+  });
+  it("accepts only the bound synthetic provider number with both capabilities", async () => {
+    const binding = parseLiveBinding(livePrivateFixture());
+    await expect(new LiveTwilioProvider(binding, async () => ({ status: 200, body: { account_sid: binding.manifest.accountSid, sid: binding.manifest.numberSid, phone_number: binding.number, capabilities: { voice: true, sms: true } } }), vi.fn()).verifyNumber()).resolves.toBeUndefined();
+  });
   it.each([{ secrets: {} }, { number: "+33100000000" }, { testers: [] }, { fixedCostCents: 5001 }])("rejects incomplete private binding", override => expect(() => parseLiveBinding({ ...livePrivateFixture(), ...override })).toThrow("INVALID_LIVE_BINDING"));
   it.each(["region", "accountSid", "keyType"])("rejects foreign credentials %s", field => {
     const input = livePrivateFixture();

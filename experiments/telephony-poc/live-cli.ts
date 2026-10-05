@@ -15,8 +15,10 @@ export async function runPreparedLiveCommand(input: unknown, loadPrivate: () => 
   assertLiveEffectsAuthorized();
   const command = liveCommandSchema.parse(input);
   const { binding, transport, probe } = createLiveNetworkTransport(loadPrivate);
+  const provider = new LiveTwilioProvider(binding, transport, probe);
+  if (command.command === "execute") await provider.verifyNumber();
   const pool = new Pool({ connectionString: binding.manifest.databaseUrl, max: 2 });
-  const repository = new LivePocRepository(pool, binding), provider = new LiveTwilioProvider(binding, transport, probe);
+  const repository = new LivePocRepository(pool, binding);
   try {
     if (command.command === "execute") { const { command: _, ...action } = command; void _; await repository.execute(action, provider); }
     else if (command.command === "reconcile") await repository.reconcile(command.id, provider);
