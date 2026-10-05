@@ -39,8 +39,10 @@ jobs:
       - name: Verify POC volume persists and server restarts
         run: |
           docker compose -f experiments/telephony-poc/compose.yml exec -T poc pnpm exec tsx experiments/telephony-poc/main.ts execute 00000000-0000-4000-8000-000000000001 CALL --confirm-synthetic
+          docker compose -f experiments/telephony-poc/compose.yml exec -T poc node experiments/telephony-poc/restart-proof.mjs before
           docker compose -f experiments/telephony-poc/compose.yml down
           docker compose -f experiments/telephony-poc/compose.yml up -d --wait
+          docker compose -f experiments/telephony-poc/compose.yml exec -T poc node experiments/telephony-poc/restart-proof.mjs after
           test "$(docker compose -f experiments/telephony-poc/compose.yml exec -T poc-postgres psql -U poc_bootstrap -d tony_poc -Atc 'SELECT count(*) FROM "PocOperation"')" = "1"
           docker compose -f experiments/telephony-poc/compose.yml exec -T poc node -e "require('http').get('http://127.0.0.1:4315/poc/webhooks/twilio/voice',r=>{if(r.statusCode!==405)process.exit(1)})"
       - run: docker compose -f experiments/telephony-poc/compose.yml down
