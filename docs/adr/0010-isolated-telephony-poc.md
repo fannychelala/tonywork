@@ -11,3 +11,9 @@ L'audio est simulé : DELETED exige DELETE confirmé, état deleted lorsqu'expos
 Le registre ne persiste ni téléphone, SMS, corps webhook, clé, audio ni URL média. Rôles non propriétaires à privilèges ciblés, reçus append-only. L'isolation réseau est une frontière différente de la RLS tenant existante, qui reste inchangée et testée.
 
 Conséquence : une vraie ligne reste nécessaire pour Gate 1 ; aucun succès LOCAL_FAKE ne ferme cette Gate. PROVIDER_TEST/LIVE_POC, fusion et production exigent un nouveau feu vert explicite. Les dettes des ADR antérieures, notamment ADR 0006, ne sont pas étendues.
+
+## Autorisations ultérieures — 5 octobre 2026
+
+LOCAL_FAKE validé humainement. Le dossier LIVE_POC et la **préparation technique sans effet** sont autorisés ; aucun credential live, numéro, callback public, tunnel actif, appel/SMS/audio, coût, fusion ou production ne l’est. L’achat administratif US1 suivi d’un routage IE1 est accepté en principe, sans credential US1 dans le processus POC et sans fallback de trafic US1 ; aucun achat/routage effectué. Voir le [checkpoint](../LOT_5_LIVE_PREPARATION_CHECKPOINT.md).
+
+La configuration préparatoire séparée ne charge aucun secret et n’active aucun processus LIVE. Le verrou final refuse systématiquement l’activation. L’évolution du contrôle statique global « aucun client réseau POC » vers des frontières LOCAL_FAKE/LIVE distinctes est proposée pour validation humaine, pas appliquée. Aucun test existant assoupli ou retiré. Gate 1 reste ouverte.
