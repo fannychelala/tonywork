@@ -148,6 +148,8 @@ describe("LIVE rehearsal on a separate real PostgreSQL", () => {
     await pool.query('INSERT INTO "PocOperation"(id,account,campaign,kind,state,parent_resource,action_slot,audio_status,deadline,stop_deadline,created_at) VALUES($1,$2,\'live-poc-v1\',\'RECORD\',\'UNKNOWN\',$3,\'T1\',\'PENDING\',$4,$5,$6)', [id, binding.manifest.accountSid, call.resource, new Date(now()+900000), new Date(now()+10000), new Date(now())]);
     await expect(repo.cleanup(provider)).rejects.toThrow("CLEANUP_PENDING_RECONCILIATION");
     await repo.stop();
+    await repository().bindNumber();
+    await expect(repository().execute({ id: randomUUID(), kind: "CALL", slot: "T1" }, provider)).rejects.toThrow("CAMPAIGN_CLOSED");
     await repository().receive("recording-status", { account: binding.manifest.accountSid, resource: "RE"+"a".repeat(32), parent: call.resource, caller: null, inboundSms: false, status: "completed", sequence: null });
     await repository().cleanup(provider);
     expect((await pool.query('SELECT audio_status FROM "PocOperation" WHERE id=$1',[id])).rows[0].audio_status).toBe("DELETED");

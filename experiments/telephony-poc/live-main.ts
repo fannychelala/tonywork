@@ -31,7 +31,8 @@ export async function startPreparedLive(loadPrivate: () => unknown): Promise<voi
     if (cleaning) return; cleaning = true;
     try { await repository.cleanup(provider); }
     catch (error) {
-      await repository.stop();
+      try { await repository.stop(); }
+      catch { clearInterval(watcher); server.close(() => { void pool.end(); }); process.exitCode = 1; return; }
       if (!(error instanceof Error) || error.message !== "CLEANUP_PENDING_RECONCILIATION") {
         clearInterval(watcher); try { await repository.emergencyStop(provider); } catch { process.exitCode = 1; }
         server.close(() => { void pool.end(); }); process.exitCode = 1;

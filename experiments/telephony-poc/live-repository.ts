@@ -34,7 +34,7 @@ export class LivePocRepository {
     return this.tx(async client => {
       const existing = await client.query<Row>('SELECT * FROM "PocOperation" WHERE kind=\'NUMBER\'');
       if (existing.rowCount) {
-        const row = existing.rows[0]; if (existing.rowCount !== 1 || row?.resource !== this.#binding.manifest.numberSid || row.state !== "ACCEPTED") throw new Error("REGISTRY_BINDING_MISMATCH"); return;
+        const row = existing.rows[0]; if (existing.rowCount !== 1 || row?.resource !== this.#binding.manifest.numberSid || !["ACCEPTED", "FAILED"].includes(row.state)) throw new Error("REGISTRY_BINDING_MISMATCH"); return;
       }
       const count = await client.query('SELECT id FROM "PocOperation" LIMIT 1'); if (count.rowCount) throw new Error("REGISTRY_BINDING_MISMATCH");
       await client.query('INSERT INTO "PocOperation"(id,account,campaign,kind,state,resource,reserved_cents) VALUES($1,$2,$3,\'NUMBER\',\'ACCEPTED\',$4,$5)', [randomUUID(), this.account, campaign, this.#binding.manifest.numberSid, this.#binding.fixedCostCents]);

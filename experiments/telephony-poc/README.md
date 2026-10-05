@@ -24,3 +24,11 @@ Tests PostgreSQL/HTTP réels : `pnpm exec vitest run --config experiments/teleph
 `node experiments/telephony-poc/network-check.mjs` nécessite les deux stacks Docker ; prouve absence de réseau/credential/volume partagé et refus TCP bidirectionnel / egress Twilio.
 
 Arrêt : `docker compose -f experiments/telephony-poc/compose.yml down` sans -v. Conserver registre tant que nettoyage non résolu. Purge privée des données synthétiques sous sept jours après clôture, par rôle hors runtime. Aucun déploiement/fusion/ressource externe. Provider_TEST et LIVE_POC restent à cadrer/autoriser pour toute exécution.
+
+## Préparation LIVE verrouillée
+
+La préparation technique sans effet est autorisée, pas son exécution réelle. Voir `docs/LOT_5_LIVE_PREPARATION_CHECKPOINT.md` et ADR 0010. Les modules `live-*` n’entrent jamais dans le graphe LOCAL_FAKE. Aucun flag ne lève le verrou final avant secrets/SDK/SQL/écoute/tunnel. La CLI préparée est une entrée locale fermée, sans chargeur de secrets branché.
+
+Les tests complets nécessitent maintenant **deux clusters POC synthétiques distincts** : 5545 reçoit 001 et conserve les suites LOCAL_FAKE ; 5556 reçoit 001 puis le beforeAll de `live-sql.test.ts` applique 002 avec un compte inventé. CI prépare les deux services. Ne jamais appliquer 002 au volume LOCAL_FAKE existant ou à Tony. Aucune migration produit. Deux tables/deux rôles inchangés ; nouvelles colonnes privées de corrélation/réservation et trigger de ressource immuable, aucun grant élargi.
+
+Une reprise d’un registre arrêté conserve les admissions fermées : seuls rapprochement/nettoyage et callbacks signés déjà corrélables restent possibles. UNKNOWN sans SID n’autorise aucune recréation. La déduplication de TwiML ne promet pas l’exécution unique d’un Dial chez le fournisseur. Aucun succès synthétique ne ferme Gate 1.
