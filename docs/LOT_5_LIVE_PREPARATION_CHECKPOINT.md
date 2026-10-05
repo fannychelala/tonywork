@@ -2,7 +2,7 @@
 
 Date : 5 octobre 2026. **Préparation technique vérifiée ; autorisation d’effets réels toujours absente. Gate 1 ouverte.**
 
-Commit technique exact : `05a6bc1d85c1503d8b857732272a3fdd88b765d9`, branche `lot-5/live-preparation`. [PR 17 en brouillon](https://github.com/fannychelala/tonywork/pull/17), aucune fusion. Ce rapport est ajouté ensuite dans un commit documentaire, sans changement de code.
+Commit technique exact : `5407cd6a072dd4fb6ddf8be018b90c4a9c9f74cd`, branche `lot-5/live-preparation`. [PR 17 en brouillon](https://github.com/fannychelala/tonywork/pull/17), aucune fusion. Ce rapport est ajouté ensuite dans un commit documentaire, sans changement de code.
 
 ## Autorisations et limites
 
@@ -73,8 +73,8 @@ Les commandes locales utilisent Node 24/pnpm fournis par l’environnement. Aucu
 | `pnpm typecheck` | Succès local et CI |
 | `pnpm build` | Succès local et CI ; routes Tony inchangées |
 | `pnpm test` | 57/57 local et CI |
-| `pnpm exec vitest run --config experiments/telephony-poc/tests/unit.config.ts` | 181/181 local, neuf suites sans SQL |
-| `pnpm exec vitest run --config experiments/telephony-poc/vitest.config.ts` | 244/244 CI : 181 hors SQL + 37 PostgreSQL LOCAL_FAKE + 26 PostgreSQL LIVE synthétique |
+| `pnpm exec vitest run --config experiments/telephony-poc/tests/unit.config.ts` | 188/188 local, neuf suites sans SQL |
+| `pnpm exec vitest run --config experiments/telephony-poc/vitest.config.ts` | 251/251 CI : 188 hors SQL + 37 PostgreSQL LOCAL_FAKE + 26 PostgreSQL LIVE synthétique |
 | `pnpm test:integration` | 89/89 PostgreSQL Tony CI ; RLS, privilèges, cross-tenant et withTenant conservés |
 | `pnpm test:e2e` | 34/34 Chromium desktop/mobile CI |
 | `pnpm exec playwright test tests/e2e/shell-ui.spec.ts --repeat-each=3 --output=test-results/focus-stability` | 6/6 CI, sans retry |
@@ -90,15 +90,15 @@ Les commandes locales utilisent Node 24/pnpm fournis par l’environnement. Aucu
 
 ### Workflows vérifiés sur le commit technique
 
-- [CI Tony](https://github.com/fannychelala/tonywork/actions/runs/37318449489) : validate + docker **success** ; 57/89/34/6 confirmés dans les logs.
-- [POC](https://github.com/fannychelala/tonywork/actions/runs/37318449681) : sql-http + network **success** ; 244 tests, dont 26 tests LIVE SQL.
-- [Security](https://github.com/fannychelala/tonywork/actions/runs/37318449683) : codeql + dependency-review **success**.
+- [CI Tony](https://github.com/fannychelala/tonywork/actions/runs/37319823324) : validate + docker **success** ; 57/89/34/6 confirmés dans les logs.
+- [POC](https://github.com/fannychelala/tonywork/actions/runs/37319823276) : sql-http + network **success** ; 251 tests, dont 26 tests LIVE SQL.
+- [Security](https://github.com/fannychelala/tonywork/actions/runs/37319823245) : codeql + dependency-review **success**.
 
 Aucun succès de CI n’est présenté comme une preuve de trafic réel fournisseur. Docker, PostgreSQL et Chromium validés en runners Linux ; Docker absent sur Mac, pas d’exécution locale de ces gates revendiquée. Les tests HTTP POC locaux utilisent exclusivement loopback et signatures inventées.
 
 ## Preuves de sécurité ajoutées
 
-Fixtures/négatifs avant branchement : contrat fermé, mauvaises région/compte/catégorie/champs inconnus/secrets absents, testeurs dupliqués ou sans consentement, URL non canonique/proxy, cinq routes signées/non signées, corps dupliqués/invalides/surdimensionnés, cookies/organizationId sans autorisation, refus d’endpoints supplémentaires. Graphes transitifs complets, alias SDK/fetch, imports imbriqués/dynamiques/produit détectés. Aucun chargement secret/SDK/SQL/écoute/tunnel avant verrou.
+Fixtures/négatifs avant branchement : contrat fermé, mauvaises région/compte/catégorie/champs inconnus/secrets absents, testeurs dupliqués ou sans consentement, URL non canonique/proxy, cinq routes signées/non signées, corps dupliqués/invalides/surdimensionnés, cookies/organizationId sans autorisation, refus d’endpoints supplémentaires. Graphes transitifs complets, alias SDK/fetch, imports imbriqués/dynamiques/produit détectés. Aucun chargement secret/SDK/SQL/écoute/tunnel avant verrou. Préflight fournisseur synthétique : compte, PN, numéro et booléens Voice/SMS exactement attendus, erreurs refusées avant effet ; même contrôle serveur/CLI. Métadonnées d’un format inattendu restent inconclusives même si le média est absent.
 
 26 tests LIVE sur **vrai PostgreSQL, effets entièrement synthétiques** : exactement deux tables, rôles restreints et DDL/DELETE/SET ROLE refusés, compte/campagne/parent incorrects refusés, ressource immuable, huit soumissions concurrentes avec un seul effet, quota Dial+opérateur commun, budget à huit intentions distinctes avec deux seuls effets avant plafond, refus audio avant toute réservation/effet si consentement absent, replay durable, child distinct refusé, completed parent non assimilé à réponse, UNKNOWN après timeout et zéro retry, stop durable/fenêtre, nettoyage et refus cross-slot. DELETE confirmé puis média encore accessible reste DELETE_FAILED ; reprise revérifie sans second DELETE. Audio sans SID reste bloquant ; corrélation signée après redémarrage résout l’obligation **sans réouvrir les admissions**.
 
@@ -106,7 +106,7 @@ Réconciliation opérateur de CALL connu : GET borné, parent/slot exacts et ver
 
 ## Corrections, risques et divergences
 
-Corrections : types stricts réponse média/bindings AST et méthodes SDK minuscules ; distinction checksum archive/exécutable cloudflared ; plafonds plus faibles respectés ; origine canonique sans slash final ; alias fetch détecté ; preuve DELETE conservée ; reprise d’un registre arrêté sans nouvelle admission. Aucune assertion métier diminuée, aucun skip/disable/retry de test. Le seul changement d’invariant existant est la séparation du scanner **autorisée explicitement**.
+Corrections : types stricts réponse média/bindings AST et méthodes SDK minuscules ; distinction checksum archive/exécutable cloudflared ; plafonds plus faibles respectés ; origine canonique sans slash final ; alias fetch détecté ; preuve DELETE conservée et réponse inattendue de métadonnées refusée ; vérification exacte du numéro/capacités avant serveur et commande opérateur ; reprise d’un registre arrêté sans nouvelle admission. Aucune assertion métier diminuée, aucun skip/disable/retry de test. Le seul changement d’invariant existant est la séparation du scanner **autorisée explicitement**.
 
 Préparation volontairement verrouillée et chargeur privé non branché ; elle ne constitue pas une autorisation opérationnelle. Les preuves réseau Docker concernent LOCAL_FAKE. **Avant activation LIVE, vérifier le déploiement IE1 et l’isolation réseau du processus à egress Twilio contre Tony**, sans réutiliser aveuglément la preuve fake. Aucun démarrage du réseau LIVE ni tunnel public réalisé. Une clé régionale déclarée dans une fixture n’est pas une preuve de permissions/région réelle.
 
