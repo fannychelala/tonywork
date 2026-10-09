@@ -6,18 +6,37 @@ const id = service => execFileSync("docker", [...compose, "ps", "-q", service], 
 const inspect = value => JSON.parse(execFileSync("docker", ["inspect", value], { encoding: "utf8" }))[0];
 const preflight = inspect(id("poc-live-preflight"));
 const postgres = inspect(id("poc-live-postgres"));
+const gateway = inspect(id("poc-live-egress"));
+const syntheticUpstream = inspect(id("poc-live-synthetic-upstream"));
 const networkNames = value => Object.keys(value.NetworkSettings.Networks);
 const privateNames = networkNames(preflight);
 
 assert.equal(privateNames.length, 1);
 assert.deepEqual(privateNames, networkNames(postgres));
-const network = JSON.parse(execFileSync("docker", ["network", "inspect", privateNames[0]], { encoding: "utf8" }))[0];
-assert.equal(network.Internal, true);
+const gatewayNetworks = networkNames(gateway);
+const upstreamNetworks = networkNames(syntheticUpstream);
+assert.equal(gatewayNetworks.length, 2);
+assert.equal(upstreamNetworks.length, 1);
+assert(gatewayNetworks.includes(privateNames[0]));
+assert(gatewayNetworks.includes(upstreamNetworks[0]));
+assert.notEqual(privateNames[0], upstreamNetworks[0]);
+for (const name of gatewayNetworks) {
+  const network = JSON.parse(execFileSync("docker", ["network", "inspect", name], { encoding: "utf8" }))[0];
+  assert.equal(network.Internal, true);
+}
 assert.equal(preflight.HostConfig.ReadonlyRootfs, true);
 assert(preflight.HostConfig.CapDrop.includes("ALL"));
 assert(preflight.HostConfig.SecurityOpt.includes("no-new-privileges:true"));
-assert.equal(Object.keys(preflight.HostConfig.PortBindings ?? {}).length, 0);
-assert.equal(Object.keys(postgres.HostConfig.PortBindings ?? {}).length, 0);
+for (const container of [preflight, postgres, gateway, syntheticUpstream]) {
+  assert.equal(Object.keys(container.HostConfig.PortBindings ?? {}).length, 0);
+}
+for (const container of [gateway, syntheticUpstream]) {
+  assert.equal(container.HostConfig.ReadonlyRootfs, true);
+  assert(container.HostConfig.CapDrop.includes("ALL"));
+  assert(container.HostConfig.SecurityOpt.includes("no-new-privileges:true"));
+  assert(!container.Config.Env.some(value => /^(TWILIO_|DATABASE_URL|AUTH_DATABASE_URL|MIGRATION_DATABASE_URL|BETTER_AUTH)/i.test(value)));
+  assert.equal(execFileSync("docker", ["logs", container.Id], { encoding: "utf8" }), "");
+}
 assert(!preflight.Config.Env.some(value => /^(TWILIO_|DATABASE_URL|AUTH_DATABASE_URL|MIGRATION_DATABASE_URL|BETTER_AUTH)/i.test(value)));
 assert(!JSON.stringify(preflight.Config).match(/SK[0-9a-f]{32}|AC[0-9a-f]{32}|\+33[0-9]{9}|postgresql:\/\//));
 assert.equal(execFileSync("docker", ["logs", preflight.Id], { encoding: "utf8" }), "");
@@ -42,6 +61,11 @@ const denyFrom = (container, host, port) => {
 };
 denyFrom(preflight.Id, "api.dublin.ie1.twilio.com", 443);
 denyFrom(preflight.Id, "api.twilio.com", 443);
+denyFrom(gateway.Id, "api.dublin.ie1.twilio.com", 443);
+const upstreamAddress = Object.values(syntheticUpstream.NetworkSettings.Networks)[0]?.IPAddress;
+assert(upstreamAddress);
+denyFrom(preflight.Id, upstreamAddress, 9443);
+assert.equal(execFileSync("docker", ["exec", preflight.Id, "node", "experiments/telephony-poc/live-egress-rehearsal-probe.mjs"], { encoding: "utf8" }).trim(), "SYNTHETIC_FIXED_EGRESS_OK");
 
 const tonyContainer = service => execFileSync("docker", ["ps", "-q",
   "--filter", "label=com.docker.compose.project=tonywork",
@@ -62,4 +86,4 @@ if (tonyAppId) {
   assert(liveAddress); denyFrom(tonyApp.Id, liveAddress, 5432);
 }
 
-console.log("LIVE_PREPARATION_DENY_ALL_ISOLATION_OK");
+console.log("LIVE_PREPARATION_FIXED_EGRESS_REHEARSAL_OK");

@@ -58,10 +58,31 @@ jobs:
           docker compose -f experiments/telephony-poc/compose.yml exec -T poc node -e "require('http').get('http://127.0.0.1:4315/poc/webhooks/twilio/voice',r=>{if(r.statusCode!==405)process.exit(1)})"
       - run: docker compose -f experiments/telephony-poc/compose.yml down
         if: always()
+      - name: Prepare synthetic LIVE private files
+        run: node experiments/telephony-poc/live-preparation-synthetic-fixture.mjs
+      - name: Prove fixed egress rehearsal without provider access
+        run: |
+          export POC_LIVE_PRIVATE_ROOT=/tmp/tony-poc-live-synthetic-fixture
+          export POC_LIVE_UID="$(id -u)"
+          export POC_LIVE_GID="$(id -g)"
+          docker compose -f experiments/telephony-poc/compose.live-preparation.yml up --build -d --wait
+          node experiments/telephony-poc/live-preparation-network-check.mjs
+      - name: Stop fixed egress rehearsal and remove synthetic private files
+        if: always()
+        run: |
+          export POC_LIVE_PRIVATE_ROOT=/tmp/tony-poc-live-synthetic-fixture
+          export POC_LIVE_UID="$(id -u)"
+          export POC_LIVE_GID="$(id -g)"
+          docker compose -f experiments/telephony-poc/compose.live-preparation.yml down
+          rm -rf /tmp/tony-poc-live-synthetic-fixture
       - run: docker compose down
         if: always()
       - name: Both stacks stopped
         if: always()
         run: |
+          export POC_LIVE_PRIVATE_ROOT=/tmp/tony-poc-live-synthetic-fixture
+          export POC_LIVE_UID="$(id -u)"
+          export POC_LIVE_GID="$(id -g)"
           test -z "$(docker compose -f experiments/telephony-poc/compose.yml ps --status running -q)"
+          test -z "$(docker compose -f experiments/telephony-poc/compose.live-preparation.yml ps --status running -q)"
           test -z "$(docker compose ps --status running -q)"

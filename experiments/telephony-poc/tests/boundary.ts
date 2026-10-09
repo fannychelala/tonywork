@@ -18,6 +18,10 @@ export function assertPocGraph(entry: string, mode: "LOCAL_FAKE" | "LIVE", files
       if (spec.text.startsWith(".")) { inspect(resolve(dirname(file), spec.text) + ".ts"); continue; }
       const allowed = new Set(["zod", "pg", "twilio", "node:http", "node:crypto"]);
       if (mode === "LIVE" && basename(file) === "live-transport.ts") allowed.add("node:https");
+      if (mode === "LIVE" && basename(file) === "live-egress-client.ts") {
+        allowed.add("node:https"); allowed.add("node:tls");
+      }
+      if (mode === "LIVE" && basename(file) === "live-egress-gateway.ts") allowed.add("node:net");
       if (mode === "LIVE" && basename(file) === "live-private-loader.ts") {
         allowed.add("node:fs"); allowed.add("node:path");
       }

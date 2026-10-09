@@ -3,6 +3,7 @@ import { request as httpsRequest } from "node:https";
 import { z } from "zod";
 import { assertLiveEffectsAuthorized } from "./live-config";
 import { parseLiveBinding, type LiveBinding } from "./live-binding";
+import { createLiveEgressAgent } from "./live-egress-client";
 import type { LiveRequest, LiveTransport, MediaProbe } from "./live-provider";
 const host = "api.dublin.ie1.twilio.com";
 export function assertSafeLiveEnvironment(env: Readonly<Record<string, string | undefined>>) {
@@ -54,14 +55,24 @@ export function prepareStreamingProbe(binding: LiveBinding, request: ProbeReques
 }
 export function probeMediaWithHttps(binding: LiveBinding, sid: string): Promise<{ status: number; authenticated: boolean }> {
   assertLiveEffectsAuthorized();
-  return prepareStreamingProbe(binding, (options, receive) => httpsRequest(options, receive))(sid);
+  const agent = createLiveEgressAgent();
+  return prepareStreamingProbe(binding, (options, receive) => httpsRequest({ ...options, agent }, receive))(sid);
 }
 
 export function createLiveNetworkTransport(loadPrivate: () => unknown): { binding: LiveBinding; transport: LiveTransport; probe: MediaProbe } {
   assertLiveEffectsAuthorized();
   assertSafeLiveEnvironment(process.env);
   const binding = parseLiveBinding(loadPrivate());
+  const agent = createLiveEgressAgent();
   const client = twilio(binding.secrets.apiKey, binding.secrets.apiSecret, { accountSid: binding.manifest.accountSid, region: "ie1", edge: "dublin", autoRetry: false, maxRetries: 0, timeout: 5000 });
   client.httpClient.axios.defaults.maxContentLength = 32768;
-  return { binding, transport: prepareSdkTransport(binding, options => client.request({ ...options, method: options.method === "GET" ? "get" : options.method === "POST" ? "post" : "delete" })), probe: sid => probeMediaWithHttps(binding, sid) };
+  client.httpClient.axios.defaults.httpsAgent = agent;
+  return {
+    binding,
+    transport: prepareSdkTransport(binding, options => client.request({ ...options, method: options.method === "GET" ? "get" : options.method === "POST" ? "post" : "delete" })),
+    probe: sid => {
+      assertLiveEffectsAuthorized();
+      return prepareStreamingProbe(binding, (options, receive) => httpsRequest({ ...options, agent }, receive))(sid);
+    },
+  };
 }

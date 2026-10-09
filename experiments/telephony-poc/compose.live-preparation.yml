@@ -22,6 +22,7 @@ services:
     user: "${POC_LIVE_UID:?Set the local owner UID}:${POC_LIVE_GID:?Set the local owner GID}"
     depends_on:
       poc-live-postgres: { condition: service_healthy }
+      poc-live-egress: { condition: service_healthy }
     volumes:
       - type: bind
         source: ${POC_LIVE_PRIVATE_ROOT:?Set the private root}/private/binding.json
@@ -54,8 +55,44 @@ services:
       interval: 2s
       timeout: 2s
       retries: 20
+  poc-live-egress:
+    build:
+      context: ../..
+      dockerfile: experiments/telephony-poc/Dockerfile
+    command: ["pnpm", "exec", "tsx", "experiments/telephony-poc/live-egress-rehearsal.ts"]
+    depends_on:
+      poc-live-synthetic-upstream: { condition: service_healthy }
+    networks: [live-private, synthetic-uplink]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    healthcheck:
+      test: ["CMD", "node", "-e", "const s=require('net').connect({host:'127.0.0.1',port:8443});s.on('connect',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1))"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  poc-live-synthetic-upstream:
+    build:
+      context: ../..
+      dockerfile: experiments/telephony-poc/Dockerfile
+    command: ["pnpm", "exec", "tsx", "experiments/telephony-poc/live-egress-synthetic-upstream.ts"]
+    networks: [synthetic-uplink]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    healthcheck:
+      test: ["CMD", "node", "-e", "const s=require('net').connect({host:'127.0.0.1',port:9443});s.on('connect',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1))"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
 networks:
   live-private:
+    internal: true
+  synthetic-uplink:
     internal: true
 volumes:
   live-poc-data:
