@@ -161,13 +161,13 @@ Les commandes locales utilisent Node 24/pnpm fournis par l’environnement. Aucu
 | `curl` release publique cloudflared, `shasum -a 256` archive et executable via `tar -xOf`, puis `cloudflared --version` | Empreintes vérifiées, version 2026.9.3 ; aucun lancement de tunnel |
 | `git diff --check`, commits/push branche, `gh pr create --draft`, `gh run view --json/--log`, `gh run watch --exit-status` | Exécutés ; PR attachée à la conversation, aucune fusion |
 
-### Workflows vérifiés sur le commit technique
+### Workflows vérifiés sur le checkpoint `5dd0142`
 
-- [CI Tony](https://github.com/fannychelala/tonywork/actions/runs/37319823324) : validate + docker **success** ; 57/89/34/6 confirmés dans les logs.
-- [POC](https://github.com/fannychelala/tonywork/actions/runs/37319823276) : sql-http + network **success** ; 251 tests, dont 26 tests LIVE SQL.
-- [Security](https://github.com/fannychelala/tonywork/actions/runs/37319823245) : codeql + dependency-review **success**.
+- [CI Tony — push](https://github.com/fannychelala/tonywork/actions/runs/37937662272) et [pull_request](https://github.com/fannychelala/tonywork/actions/runs/37937668838) : validate + docker **success** ; régressions Tony et smoke Docker confirmés.
+- [POC — push](https://github.com/fannychelala/tonywork/actions/runs/37937662244) et [pull_request](https://github.com/fannychelala/tonywork/actions/runs/37937668924) : sql-http + network **success** ; 265 tests et isolation LOCAL_FAKE confirmés.
+- [Security](https://github.com/fannychelala/tonywork/actions/runs/37937668999) : CodeQL + Dependency Review **success**.
 
-Aucun succès local ou CI n’est présenté comme une preuve de trafic réel fournisseur. Docker Desktop 4.94.0, PostgreSQL 18 et Chromium Playwright ont aussi été validés sur le MacBook le 9 octobre 2026. Les tests HTTP POC locaux utilisent exclusivement loopback et signatures inventées. Le commit de préflight `f8ffc9d69f3dcdadd15f81f565fb54e665636134` doit encore recevoir ses propres résultats GitHub avant de réactualiser les liens ci-dessus.
+Aucun succès local ou CI n’est présenté comme une preuve de trafic réel fournisseur. Docker Desktop 4.94.0, PostgreSQL 18 et Chromium Playwright ont aussi été validés sur le MacBook le 9 octobre 2026. Les tests HTTP POC locaux utilisent exclusivement loopback et signatures inventées.
 
 ## Preuves de sécurité ajoutées
 
