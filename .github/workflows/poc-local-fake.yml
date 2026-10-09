@@ -6,6 +6,16 @@ jobs:
   sql-http:
     runs-on: ubuntu-latest
     services:
+      postgres-live-synthetic:
+        image: postgres:18-bookworm
+        env:
+          POSTGRES_DB: tony_poc
+          POSTGRES_USER: poc_bootstrap
+          POSTGRES_PASSWORD: synthetic_poc_bootstrap_only
+        ports: [5556:5432]
+        options: >-
+          --health-cmd "pg_isready -U poc_bootstrap -d tony_poc"
+          --health-interval 2s --health-timeout 2s --health-retries 20
       postgres-poc:
         image: postgres:18-bookworm
         env:
@@ -23,6 +33,7 @@ jobs:
       - run: npm install -g pnpm@11.25.0
       - run: pnpm install --frozen-lockfile
       - run: psql postgresql://poc_bootstrap:synthetic_poc_bootstrap_only@localhost:5545/tony_poc -v ON_ERROR_STOP=1 -f experiments/telephony-poc/sql/001-poc.sql
+      - run: psql postgresql://poc_bootstrap:synthetic_poc_bootstrap_only@localhost:5556/tony_poc -v ON_ERROR_STOP=1 -f experiments/telephony-poc/sql/001-poc.sql
       - run: pnpm exec vitest run --config experiments/telephony-poc/vitest.config.ts
   network:
     runs-on: ubuntu-latest
@@ -47,10 +58,31 @@ jobs:
           docker compose -f experiments/telephony-poc/compose.yml exec -T poc node -e "require('http').get('http://127.0.0.1:4315/poc/webhooks/twilio/voice',r=>{if(r.statusCode!==405)process.exit(1)})"
       - run: docker compose -f experiments/telephony-poc/compose.yml down
         if: always()
+      - name: Prepare synthetic LIVE private files
+        run: node experiments/telephony-poc/live-preparation-synthetic-fixture.mjs
+      - name: Prove fixed egress rehearsal without provider access
+        run: |
+          export POC_LIVE_PRIVATE_ROOT=/tmp/tony-poc-live-synthetic-fixture
+          export POC_LIVE_UID="$(id -u)"
+          export POC_LIVE_GID="$(id -g)"
+          docker compose -f experiments/telephony-poc/compose.live-preparation.yml up --build -d --wait
+          node experiments/telephony-poc/live-preparation-network-check.mjs
+      - name: Stop fixed egress rehearsal and remove synthetic private files
+        if: always()
+        run: |
+          export POC_LIVE_PRIVATE_ROOT=/tmp/tony-poc-live-synthetic-fixture
+          export POC_LIVE_UID="$(id -u)"
+          export POC_LIVE_GID="$(id -g)"
+          docker compose -f experiments/telephony-poc/compose.live-preparation.yml down
+          rm -rf /tmp/tony-poc-live-synthetic-fixture
       - run: docker compose down
         if: always()
       - name: Both stacks stopped
         if: always()
         run: |
+          export POC_LIVE_PRIVATE_ROOT=/tmp/tony-poc-live-synthetic-fixture
+          export POC_LIVE_UID="$(id -u)"
+          export POC_LIVE_GID="$(id -g)"
           test -z "$(docker compose -f experiments/telephony-poc/compose.yml ps --status running -q)"
+          test -z "$(docker compose -f experiments/telephony-poc/compose.live-preparation.yml ps --status running -q)"
           test -z "$(docker compose ps --status running -q)"

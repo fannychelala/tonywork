@@ -1,0 +1,98 @@
+name: tony-poc-live-preparation
+services:
+  poc-live-postgres:
+    image: postgres:18-bookworm
+    environment:
+      POSTGRES_USER: poc_bootstrap
+      POSTGRES_PASSWORD: synthetic_live_preparation_bootstrap_only
+      POSTGRES_DB: tony_poc
+    volumes:
+      - live-poc-data:/var/lib/postgresql
+    networks: [live-private]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poc_bootstrap -d tony_poc"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  poc-live-preflight:
+    build:
+      context: ../..
+      dockerfile: experiments/telephony-poc/Dockerfile
+    command: ["pnpm", "exec", "tsx", "experiments/telephony-poc/live-preflight.ts"]
+    user: "${POC_LIVE_UID:?Set the local owner UID}:${POC_LIVE_GID:?Set the local owner GID}"
+    depends_on:
+      poc-live-postgres: { condition: service_healthy }
+      poc-live-egress: { condition: service_healthy }
+    volumes:
+      - type: bind
+        source: ${POC_LIVE_PRIVATE_ROOT:?Set the private root}/private/binding.json
+        target: /run/tony-poc/private/binding.json
+        read_only: true
+      - type: bind
+        source: ${POC_LIVE_PRIVATE_ROOT:?Set the private root}/secrets/database-url
+        target: /run/tony-poc/secrets/database-url
+        read_only: true
+      - type: bind
+        source: ${POC_LIVE_PRIVATE_ROOT:?Set the private root}/secrets/api-key
+        target: /run/tony-poc/secrets/api-key
+        read_only: true
+      - type: bind
+        source: ${POC_LIVE_PRIVATE_ROOT:?Set the private root}/secrets/api-secret
+        target: /run/tony-poc/secrets/api-secret
+        read_only: true
+      - type: bind
+        source: ${POC_LIVE_PRIVATE_ROOT:?Set the private root}/secrets/auth-token
+        target: /run/tony-poc/secrets/auth-token
+        read_only: true
+    networks: [live-private]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(require('fs').existsSync('/tmp/live-preflight-ok')?0:1)"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  poc-live-egress:
+    build:
+      context: ../..
+      dockerfile: experiments/telephony-poc/Dockerfile
+    command: ["pnpm", "exec", "tsx", "experiments/telephony-poc/live-egress-rehearsal.ts"]
+    depends_on:
+      poc-live-synthetic-upstream: { condition: service_healthy }
+    networks: [live-private, synthetic-uplink]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    healthcheck:
+      test: ["CMD", "node", "-e", "const s=require('net').connect({host:'127.0.0.1',port:8443});s.on('connect',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1))"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  poc-live-synthetic-upstream:
+    build:
+      context: ../..
+      dockerfile: experiments/telephony-poc/Dockerfile
+    command: ["pnpm", "exec", "tsx", "experiments/telephony-poc/live-egress-synthetic-upstream.ts"]
+    networks: [synthetic-uplink]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    healthcheck:
+      test: ["CMD", "node", "-e", "const s=require('net').connect({host:'127.0.0.1',port:9443});s.on('connect',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1))"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+networks:
+  live-private:
+    internal: true
+  synthetic-uplink:
+    internal: true
+volumes:
+  live-poc-data:
