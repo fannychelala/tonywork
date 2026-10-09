@@ -153,8 +153,8 @@ Les commandes locales utilisent Node 24/pnpm fournis par l’environnement. Aucu
 | `pnpm typecheck` | Succès local et CI |
 | `pnpm build` | Succès local et CI ; routes Tony inchangées |
 | `pnpm test` | 57/57 local et CI |
-| `pnpm exec vitest run --config experiments/telephony-poc/tests/unit.config.ts` | 214/214 local, douze suites sans SQL, dont 11 nouveaux contrôles de passerelle |
-| `pnpm exec vitest run --config experiments/telephony-poc/vitest.config.ts` | 277/277 local : suites unitaires/HTTP, 37 PostgreSQL LOCAL_FAKE et 26 PostgreSQL LIVE synthétique |
+| `pnpm exec vitest run --config experiments/telephony-poc/tests/unit.config.ts` | 215/215 local, douze suites sans SQL, dont 12 nouveaux contrôles de passerelle |
+| `pnpm exec vitest run --config experiments/telephony-poc/vitest.config.ts` | 278/278 local : suites unitaires/HTTP, 37 PostgreSQL LOCAL_FAKE et 26 PostgreSQL LIVE synthétique |
 | `pnpm test:integration` | 89/89 PostgreSQL Tony local et CI ; RLS, privilèges, cross-tenant et withTenant conservés |
 | `pnpm test:e2e` | 34/34 Chromium desktop/mobile local et CI ; Chromium 153 / Playwright 1.63 installé localement après le premier constat d’absence du binaire |
 | `pnpm exec playwright test tests/e2e/shell-ui.spec.ts --repeat-each=3 --retries=0 --output=test-results/focus-stability` | 6/6 local et CI, sans retry |

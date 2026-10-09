@@ -1,5 +1,6 @@
 import { once } from "node:events";
 import { connect, createServer, type Server } from "node:net";
+import { connect as connectTls } from "node:tls";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createFixedTlsGateway,
@@ -132,6 +133,37 @@ describe("fixed TLS egress gateway", () => {
     const gatewayPort = await gateway.listen(0, "127.0.0.1");
     const hello = clientHello(TWILIO_IE1_EGRESS_TARGET.serverName);
     expect(await roundTrip(gatewayPort, hello)).toEqual(Buffer.concat([Buffer.from("ACK:"), hello]));
+  });
+
+  it("accepts the real Node 24 ClientHello for the exact IE1 SNI", async () => {
+    let receiveHello!: (value: Buffer) => void;
+    const received = new Promise<Buffer>(resolve => { receiveHello = resolve; });
+    const upstream = createServer(socket => {
+      socket.once("data", data => {
+        receiveHello(Buffer.from(data));
+        socket.destroy();
+      });
+    });
+    openServers.push(upstream);
+    const upstreamPort = await listen(upstream);
+    const gateway = createFixedTlsGateway({
+      target: { ...TWILIO_IE1_EGRESS_TARGET, host: "127.0.0.1", port: upstreamPort },
+    });
+    openServers.push(gateway);
+    const gatewayPort = await gateway.listen(0, "127.0.0.1");
+    const client = connectTls({
+      host: "127.0.0.1",
+      port: gatewayPort,
+      servername: TWILIO_IE1_EGRESS_TARGET.serverName,
+      rejectUnauthorized: false,
+    });
+    client.on("error", () => undefined);
+    const hello = await received;
+    expect(inspectTlsClientHello(hello)).toEqual({
+      state: "READY",
+      serverName: TWILIO_IE1_EGRESS_TARGET.serverName,
+    });
+    client.destroy();
   });
 
   it("bounds concurrent streams and closes idle clients", async () => {
