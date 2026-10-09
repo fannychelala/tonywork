@@ -18,6 +18,10 @@ describe("LIVE preparation has no effect authorization", () => {
   it("parses an entirely synthetic, explicit IE1 manifest", () => {
     expect(parseLivePreparation(fixture()).region).toBe("ie1");
   });
+  it("accepts only the dedicated LIVE preparation PostgreSQL service", () => {
+    const databaseUrl = "postgresql://tony_poc_runtime:synthetic-preparation-only@poc-live-postgres:5432/tony_poc";
+    expect(parseLivePreparation({ ...fixture(), databaseUrl }).databaseUrl).toBe(databaseUrl);
+  });
   it.each(Object.keys(fixture()))("requires the explicit field %s", field => {
     const input: Record<string, unknown> = fixture(); delete input[field];
     expect(() => parseLivePreparation(input)).toThrow("INVALID_LIVE_CONFIGURATION");

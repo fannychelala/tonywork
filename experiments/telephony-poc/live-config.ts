@@ -24,7 +24,7 @@ const manifest = z.object({
   databaseUrl: z.string().url().refine(value => {
     const url = new URL(value);
     return url.protocol === "postgresql:" && url.username === "tony_poc_runtime" && !!url.password
-      && url.pathname === "/tony_poc" && ["127.0.0.1", "poc-postgres"].includes(url.hostname)
+      && url.pathname === "/tony_poc" && ["127.0.0.1", "poc-postgres", "poc-live-postgres"].includes(url.hostname)
       && !url.search && !url.hash;
   }),
 }).strict();
