@@ -2,7 +2,7 @@
 
 Date : 5 octobre 2026. **Préparation technique vérifiée ; autorisation d’effets réels toujours absente. Gate 1 ouverte.**
 
-Commit technique initial validé : `5407cd6a072dd4fb6ddf8be018b90c4a9c9f74cd`. Commit technique du préflight local sans effet : `f8ffc9d69f3dcdadd15f81f565fb54e665636134`, branche `lot-5/live-preparation`. [PR 17 en brouillon](https://github.com/fannychelala/tonywork/pull/17), aucune fusion.
+Commit technique initial validé : `5407cd6a072dd4fb6ddf8be018b90c4a9c9f74cd`. Commit technique du préflight local sans effet : `f8ffc9d69f3dcdadd15f81f565fb54e665636134`. Passerelle d’egress fixe et répétition synthétique : `0ebe9e1d0a53358dbca11d6cbea7e8046d232f88`, branche `lot-5/live-preparation`. [PR 17 en brouillon](https://github.com/fannychelala/tonywork/pull/17), aucune fusion.
 
 ## Autorisations et limites
 
